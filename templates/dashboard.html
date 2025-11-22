@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Sistema de Mantenimiento{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Resumen Rápido 
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">🔧</div>
+            <div class="stat-info">
+                <h3>{{ total_equipos or 15 }}</h3>
+                <p>Equipos Totales</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-info">
+                <h3>{{ mtto_mes or 8 }}</h3>
+                <p>Mtto. Este Mes</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-info">
+                <h3>{{ pendientes or 3 }}</h3>
+                <p>Pendientes</p>
+            </div>
+        </div>
+        
+        <div class="stat-card">
+            <div class="stat-icon">📅</div>
+            <div class="stat-info">
+                <h3>{{ proximos or 5 }}</h3>
+                <p>Próximos</p>
+            </div>
+        </div>
+    </div>-->
+
+    <!-- Accesos Rápidos -->
+    <div class="quick-actions">
+        <h2>Acciones Rápidas</h2>
+        <div class="action-grid">
+            <a href="{{ url_for('reportar_mantenimiento') }}" class="action-card">
+                <div class="action-icon">📝</div>
+                <span>Reportar Mantenimiento</span>
+            </a>
+            
+            <a href="{{ url_for('ver_equipos') }}" class="action-card">
+                <div class="action-icon">🔧</div>
+                <span>Ver Equipos</span>
+            </a>
+            
+            <a href="{{ url_for('ver_mantenimientos') }}" class="action-card">
+                <div class="action-icon">📋</div>
+                <span>Historial</span>
+            </a>
+            
+            <a href="{{ url_for('cronograma') }}" class="action-card">
+                <div class="action-icon">📅</div>
+                <span>Cronograma</span>
+            </a>
+        </div>
+    </div>
+<!-- En tu dashboard.html, en la sección de próximos mantenimientos -->
+<!-- En tu dashboard.html, en la sección de próximos mantenimientos -->
+<div class="dashboard-section">
+    <h2>📅 Próximos Mantenimientos</h2>
+    <div class="proximos-mantenimientos">
+        {% if proximos_mantenimientos %}
+            {% for cronograma in proximos_mantenimientos %}
+            <div class="proximo-item card {% if hoy and cronograma.proximo_mtto and cronograma.proximo_mtto < hoy %}vencido{% endif %}">
+                <div class="proximo-header">
+                    <strong>{{ cronograma.equipo_nombre }}</strong>
+                    <span class="fecha">
+                        {% if cronograma.proximo_mtto %}
+                            {{ cronograma.proximo_mtto.strftime('%d/%m/%Y') }}
+                        {% else %}
+                            Sin fecha
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="proximo-details">
+                    <span class="tipo">{{ cronograma.tipo }}</span>
+                    {% if cronograma.subcategoria %}
+                    <span class="subcategoria">- {{ cronograma.subcategoria }}</span>
+                    {% endif %}
+                </div>
+                <a href="{{ url_for('reportar_mantenimiento') }}?cronograma_id={{ cronograma.id }}" 
+                   class="btn-reportar">Reportar</a>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="no-data">No hay mantenimientos programados</p>
+        {% endif %}
+    </div>
+</div>
+    <!-- Mantenimientos Recientes -->
+    <div class="recent-section">
+        <h2>Mantenimientos Recientes</h2>
+        <div class="recent-list">
+            {% if mantenimientos %}
+                {% for mtto in mantenimientos %}
+                <div class="recent-item card">
+                    <div class="recent-header">
+                        <strong>{{ mtto.equipo_nombre }}</strong>
+                        <span class="badge badge-{{ mtto.tipo }}">{{ mtto.tipo }}</span>
+                    </div>
+                    <p>{{ mtto.descripcion }}</p>
+                    <div class="recent-footer">
+                        <strong>{{ mtto.fecha }}</strong>
+                        <span class="status status-{{ mtto.estado }}">{{ mtto.estado }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <p>No hay mantenimientos recientes</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}

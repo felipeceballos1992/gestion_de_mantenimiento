@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Reporte de Mantenimientos</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #333;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 10px;
+        }
+        .header h1 {
+            margin: 0;
+            color: #2c3e50;
+        }
+        .fecha-generacion {
+            text-align: right;
+            font-size: 10px;
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .mantenimiento {
+            margin-bottom: 15px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            page-break-inside: avoid;
+        }
+        .mantenimiento-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 8px;
+        }
+        .equipo-nombre {
+            font-weight: bold;
+            font-size: 14px;
+            color: #2c3e50;
+        }
+        .mantenimiento-meta {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+        .badge-preventivo { background: #d4edda; color: #155724; }
+        .badge-correctivo { background: #f8d7da; color: #721c24; }
+        .badge-predictivo { background: #d1ecf1; color: #0c5460; }
+        .status { 
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+        .status-completado { background: #d4edda; color: #155724; }
+        .status-pendiente { background: #fff3cd; color: #856404; }
+        .fecha {
+            color: #666;
+            font-size: 10px;
+        }
+        .descripcion {
+            font-size: 11px;
+            color: #555;
+            margin: 8px 0;
+        }
+        .fotos-info {
+            font-size: 10px;
+            color: #666;
+            margin-top: 5px;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .total-registros {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+            font-size: 11px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1>{{ titulo_reporte }}</h1>
+    <div>Sistema de Gestión de Mantenimiento</div>
+</div>
+    
+    <div class="fecha-generacion">
+        Generado el: {{ fecha_generacion }}
+    </div>
+
+    {% for mtto in mantenimientos %}
+    <div class="mantenimiento">
+        <div class="mantenimiento-header">
+            <div class="equipo-nombre">{{ mtto.equipo_nombre }}</div>
+            <div class="mantenimiento-meta">
+                <span class="fecha">{{ mtto.fecha }}</span>
+                <span class="badge badge-{{ mtto.tipo }}">{{ mtto.tipo }}</span>
+                <span class="status status-{{ mtto.estado }}">{{ mtto.estado }}</span>
+            </div>
+        </div>
+        
+        <div class="descripcion">
+            {{ mtto.descripcion }}
+        </div>
+        
+        {% if mtto.fotos %}
+        <div class="fotos-info">
+            📷 {{ mtto.fotos|length }} foto(s) asociada(s)
+        </div>
+        {% endif %}
+    </div>
+    
+    {% if loop.index % 5 == 0 %}
+    <div class="page-break"></div>
+    {% endif %}
+    {% endfor %}
+    
+    <div class="total-registros">
+        Total de mantenimientos: {{ mantenimientos|length }}
+    </div>
+</body>
+</html>

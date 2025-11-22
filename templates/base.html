@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Mantenimiento{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block styles %}{% endblock %}
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">🔧 Gestión del Mantenimiento</div>
+            
+            <button class="nav-toggle" onclick="toggleNav()">☰</button>
+            
+            <nav class="nav-menu" id="navMenu">
+                <a href="{{ url_for('dashboard') }}">Tablero</a>
+                <a href="{{ url_for('ver_equipos') }}">Equipos</a>
+                <a href="{{ url_for('ver_mantenimientos') }}">Mantenimientos</a>
+		<a href="{{ url_for('cronograma') }}">Cronograma</a>
+                <a href="{{ url_for('reportar_mantenimiento') }}">Reportar</a>
+                
+		    <a href="{{ url_for('logout') }}">Salir</a>
+		<div class="user-menu">
+                    <span id="userInfo">{{ session.get('nombre', 'Nombre') }} ({{ session.get('rol', 'Rol') }})</span>   
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Contenido Principal -->
+    <main class="main-content">
+        <!-- Mensajes Flash -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+
+        <!-- Contenido específico de cada página -->
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>Sistema de Gestión de Mantenimiento &copy; 2024</p>
+    </footer>
+
+<!-- Al final del body, mantener solo esto: -->
+<script>
+    function toggleNav() {
+        const navMenu = document.getElementById('navMenu');
+        navMenu.classList.toggle('active');
+    }
+
+    // Cerrar menú al hacer clic fuera de él
+    document.addEventListener('click', function(event) {
+        const navMenu = document.getElementById('navMenu');
+        const navToggle = document.querySelector('.nav-toggle');
+        
+        if (!navMenu.contains(event.target) && !navToggle.contains(event.target)) {
+            navMenu.classList.remove('active');
+        }
+    });
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

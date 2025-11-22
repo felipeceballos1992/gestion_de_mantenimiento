@@ -1,0 +1,515 @@
+{% extends "base.html" %}
+
+{% block title %}Mantenimientos - Sistema de Mantenimiento{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Historial de Mantenimientos</h1>
+    <p>Registro completo de todas las intervenciones</p>
+</div>
+
+<!-- Filtros -->
+<div class="filters-section">
+    <div class="filter-group">
+        <label for="equipo_id">Equipo:</label>
+        <select id="equipo_id" name="equipo_id" onchange="document.getElementById('filtrosForm').submit()">
+            <option value="">Todos los equipos</option>
+            {% for equipo in equipos %}
+            <option value="{{ equipo.id }}" 
+                {% if filtros_actuales.equipo_id == equipo.id|string %}selected{% endif %}>
+                {{ equipo.nombre }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    
+    <div class="filter-group">
+        <label for="tipo">Tipo:</label>
+        <select id="tipo" name="tipo" onchange="document.getElementById('filtrosForm').submit()">
+            <option value="">Todos los tipos</option>
+            <option value="preventivo" {% if filtros_actuales.tipo == 'preventivo' %}selected{% endif %}>Preventivo</option>
+            <option value="correctivo" {% if filtros_actuales.tipo == 'correctivo' %}selected{% endif %}>Correctivo</option>
+            <option value="predictivo" {% if filtros_actuales.tipo == 'predictivo' %}selected{% endif %}>Predictivo</option>
+        </select>
+    </div>
+    
+    <div class="filter-group">
+        <label for="fecha_desde">Desde:</label>
+        <input type="date" id="fecha_desde" 
+               name="fecha_desde"
+               value="{{ filtros_actuales.fecha_desde }}"
+               onchange="actualizarYEnviar()">
+    </div>
+
+    <div class="filter-group">
+        <label for="fecha_hasta">Hasta:</label>
+        <input type="date" id="fecha_hasta" 
+               name="fecha_hasta"
+               value="{{ filtros_actuales.fecha_hasta }}"
+               onchange="actualizarYEnviar()">
+    </div>
+    
+    <!-- Botones a la derecha -->
+    <div class="filter-actions">
+        <a href="{{ url_for('ver_mantenimientos') }}" class="btn btn-secondary">Limpiar</a>
+        <a href="#" onclick="generarPDFConFiltros()" class="btn btn-primary">
+            📄 Exportar PDF
+        </a>
+    </div>
+    
+    <!-- Form oculto para enviar los filtros -->
+    <form method="GET" action="{{ url_for('ver_mantenimientos') }}" id="filtrosForm" style="display: none;">
+        <input type="hidden" name="equipo_id" id="hiddenEquipo" value="{{ filtros_actuales.equipo_id or '' }}">
+        <input type="hidden" name="tipo" id="hiddenTipo" value="{{ filtros_actuales.tipo or '' }}">
+        <input type="hidden" name="fecha_desde" id="hiddenFechaDesde" value="{{ filtros_actuales.fecha_desde or '' }}">
+        <input type="hidden" name="fecha_hasta" id="hiddenFechaHasta" value="{{ filtros_actuales.fecha_hasta or '' }}">
+        <input type="hidden" name="pagina" value="1">
+    </form>
+</div>
+
+<!-- Lista de mantenimientos -->
+<div class="mantenimientos-list" id="mantenimientosList">
+    {% if mantenimientos %}
+        {% for mtto in mantenimientos %}
+        <div class="mantenimiento-card" data-equipo="{{ mtto.equipo_id }}" data-tipo="{{ mtto.tipo }}">
+            <div class="mantenimiento-header">
+                <div class="mantenimiento-info">
+                    <h3>{{ mtto.equipo_nombre }}</h3>
+                    <div class="mantenimiento-meta">
+                        <span class="fecha">{{ mtto.fecha }}</span>
+                        <span class="badge badge-{{ mtto.tipo }}">{{ mtto.tipo }}</span>
+                        <span class="status status-{{ mtto.estado }}">{{ mtto.estado }}</span>
+                    </div>
+                </div>
+                <button class="btn-detalle" onclick="verDetalleMantenimiento({{ mtto.id }})">
+                    Ver Detalle
+                </button>
+            </div>
+            
+            <div class="mantenimiento-descripcion">
+                <p>{{ mtto.descripcion }}</p>
+            </div>
+            
+            <!-- Fotos preview -->
+            <div class="fotos-preview" id="fotosPreview{{ mtto.id }}">
+                <!-- Las fotos se cargarán dinámicamente -->
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">📋</div>
+            <h3>No hay mantenimientos registrados</h3>
+            <p>Comienza reportando tu primer mantenimiento.</p>
+            <a href="{{ url_for('reportar_mantenimiento') }}" class="btn btn-primary">
+                Reportar Mantenimiento
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Paginación -->
+{% if total_paginas > 1 %}
+<div class="pagination">
+    {% if pagina_actual > 1 %}
+        <a href="{{ url_for('ver_mantenimientos', pagina=pagina_actual-1, equipo_id=filtros_actuales.equipo_id, tipo=filtros_actuales.tipo, fecha_desde=filtros_actuales.fecha_desde, fecha_hasta=filtros_actuales.fecha_hasta) }}" 
+           class="btn btn-secondary">
+            ← Anterior
+        </a>
+    {% endif %}
+    
+    <span class="pagination-info">
+        Página {{ pagina_actual }} de {{ total_paginas }} 
+        ({{ total_resultados }} mantenimientos{% if filtros_actuales.equipo_id or filtros_actuales.tipo or filtros_actuales.fecha_desde or filtros_actuales.fecha_hasta %} filtrados{% endif %})
+    </span>
+    
+    {% if pagina_actual < total_paginas %}
+        <a href="{{ url_for('ver_mantenimientos', pagina=pagina_actual+1, equipo_id=filtros_actuales.equipo_id, tipo=filtros_actuales.tipo, fecha_desde=filtros_actuales.fecha_desde, fecha_hasta=filtros_actuales.fecha_hasta) }}" 
+           class="btn btn-secondary">
+            Siguiente →
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Modal para Detalle de Mantenimiento -->
+<div id="modalDetalleMantenimiento" class="modal">
+    <div class="modal-content modal-lg">
+        <div class="modal-header">
+            <h2 id="modalTituloDetalle">Detalle de Mantenimiento</h2>
+            <span class="close" onclick="cerrarModalDetalle()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="detalleContenido">
+                <!-- Los detalles se cargarán aquí dinámicamente -->
+            </div>
+            
+            <!-- Galería de fotos -->
+            <div class="detalle-section">
+                <h3>Fotos del Mantenimiento</h3>
+                <div id="detalleFotos" class="fotos-detalle-container">
+                    <!-- Las fotos se cargarán aquí dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Repuestos utilizados -->
+            <div class="detalle-section">
+                <h3>Repuestos Utilizados</h3>
+                <div id="detalleRepuestos" class="repuestos-container">
+                    <!-- Los repuestos se cargarán aquí dinámicamente -->
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="cerrarModalDetalle()">Cerrar</button>
+            <button type="button" class="btn btn-primary btn-lg" onclick="exportarPDF()">Exportar PDF</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Variables globales
+    let mantenimientoDetalleActual = null;
+
+    // Inicializar cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Página cargada - Valores iniciales:', {
+            fecha_desde: document.getElementById('fecha_desde').value,
+            fecha_hasta: document.getElementById('fecha_hasta').value
+        });
+        
+        // Configurar eventos para los selects existentes
+        document.getElementById('equipo_id').addEventListener('change', actualizarYEnviar);
+        document.getElementById('tipo').addEventListener('change', actualizarYEnviar);
+        
+        // Cargar fotos cuando la página esté lista
+        console.log('DOM cargado, iniciando carga de fotos...');
+        {% for mtto in mantenimientos %}
+            setTimeout(() => {
+                cargarFotosMantenimiento({{ mtto.id }});
+            }, 100 * {{ loop.index }}); // Pequeño delay para no saturar
+        {% endfor %}
+    });
+
+    function actualizarYEnviar() {
+        console.log('Actualizando y enviando...');
+        
+        // Obtener referencias a todos los elementos
+        const equipoSelect = document.getElementById('equipo_id');
+        const tipoSelect = document.getElementById('tipo');
+        const fechaDesdeInput = document.getElementById('fecha_desde');
+        const fechaHastaInput = document.getElementById('fecha_hasta');
+        
+        // Actualizar campos ocultos
+        document.getElementById('hiddenEquipo').value = equipoSelect.value;
+        document.getElementById('hiddenTipo').value = tipoSelect.value;
+        document.getElementById('hiddenFechaDesde').value = fechaDesdeInput.value;
+        document.getElementById('hiddenFechaHasta').value = fechaHastaInput.value;
+        
+        console.log('Valores actualizados:', {
+            equipo: equipoSelect.value,
+            tipo: tipoSelect.value,
+            desde: fechaDesdeInput.value,
+            hasta: fechaHastaInput.value
+        });
+        
+        // Enviar formulario
+        document.getElementById('filtrosForm').submit();
+    }
+
+    function generarPDFConFiltros() {
+        console.log('Generando PDF...');
+        
+        // Usar los valores actuales de los inputs visibles
+        const equipoFilter = document.getElementById('equipo_id').value;
+        const tipoFilter = document.getElementById('tipo').value;
+        const fechaDesdeFilter = document.getElementById('fecha_desde').value;
+        const fechaHastaFilter = document.getElementById('fecha_hasta').value;
+        
+        let url = '/mantenimientos/pdf?';
+        const params = [];
+        
+        if (equipoFilter) {
+            params.push(`equipo_id=${equipoFilter}`);
+        }
+        if (tipoFilter) {
+            params.push(`tipo=${tipoFilter}`);
+        }
+        if (fechaDesdeFilter) {
+            params.push(`fecha_desde=${fechaDesdeFilter}`);
+        }
+        if (fechaHastaFilter) {
+            params.push(`fecha_hasta=${fechaHastaFilter}`);
+        }
+        
+        url += params.join('&');
+        console.log('URL del PDF:', url);
+        window.open(url, '_blank');
+    }
+
+// Función para ver detalle del mantenimiento
+async function verDetalleMantenimiento(mantenimientoId) {
+    try {
+        // Mostrar loader
+        document.getElementById('detalleContenido').innerHTML = '<div class="loading">Cargando detalles...</div>';
+        document.getElementById('detalleFotos').innerHTML = '<div class="loading">Cargando fotos...</div>';
+        document.getElementById('detalleRepuestos').innerHTML = '<div class="loading">Cargando repuestos...</div>';
+        
+        // Mostrar el modal
+        document.getElementById('modalDetalleMantenimiento').style.display = 'block';
+        
+        // Hacer fetch para obtener los detalles completos
+        const response = await fetch(`/api/mantenimientos/${mantenimientoId}/detalle`);
+        
+        if (!response.ok) {
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const mantenimiento = await response.json();
+        mantenimientoDetalleActual = mantenimiento;
+        
+        // Llenar el modal con los detalles
+        mostrarDetallesMantenimiento(mantenimiento);
+        
+    } catch (error) {
+        console.error('Error cargando detalles:', error);
+        document.getElementById('detalleContenido').innerHTML = `
+            <div class="error-message">
+                Error al cargar los detalles del mantenimiento: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Función para mostrar los detalles en el modal
+function mostrarDetallesMantenimiento(mantenimiento) {
+    const detalleContenido = document.getElementById('detalleContenido');
+    
+    // Formatear fecha y hora
+    const fechaFormateada = mantenimiento.fecha ? new Date(mantenimiento.fecha).toLocaleDateString('es-ES') : 'N/A';
+    const horaFormateada = mantenimiento.hora ? mantenimiento.hora.substring(0, 5) : 'N/A';
+    
+    // Información del cronograma si existe
+    let infoCronograma = 'No aplica';
+    if (mantenimiento.cronograma_info) {
+        const crono = mantenimiento.cronograma_info;
+        infoCronograma = `${crono.tipo}${crono.subcategoria ? ' - ' + crono.subcategoria : ''}${crono.frecuencia ? ' (cada ' + crono.frecuencia + ' días)' : ''}`;
+    }
+    
+    detalleContenido.innerHTML = `
+        <div class="detalle-section">
+            <h3>Información General</h3>
+            <div class="detalle-grid">
+                <div class="detalle-item">
+                    <label>Equipo:</label>
+                    <span>${mantenimiento.equipo_nombre || 'N/A'}</span>
+                </div>
+                <div class="detalle-item">
+                    <label>Tipo de Mantenimiento:</label>
+                    <span class="badge badge-${mantenimiento.tipo || 'N/A'}">${mantenimiento.tipo || 'N/A'}</span>
+                </div>
+                <div class="detalle-item">
+                    <label>Fecha:</label>
+                    <span>${fechaFormateada}</span>
+                </div>
+                <div class="detalle-item">
+                    <label>Hora:</label>
+                    <span>${horaFormateada}</span>
+                </div>
+                <div class="detalle-item">
+                    <label>Estado:</label>
+                    <span class="status status-${mantenimiento.estado || 'N/A'}">${mantenimiento.estado || 'N/A'}</span>
+                </div>
+                <div class="detalle-item">
+                    <label>Programado por Cronograma:</label>
+                    <span>${infoCronograma}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="detalle-section">
+            <h3>Descripción del Trabajo</h3>
+            <div class="descripcion-content">
+                <p>${mantenimiento.descripcion || 'No hay descripción disponible'}</p>
+            </div>
+        </div>
+    `;
+    
+    // Cargar fotos en el modal
+    cargarFotosDetalle(mantenimiento.fotos || []);
+    
+    // Cargar repuestos en el modal
+    cargarRepuestosDetalle(mantenimiento.repuestos || []);
+}
+
+// Función para cargar fotos en el modal de detalle
+function cargarFotosDetalle(fotos) {
+    const fotosContainer = document.getElementById('detalleFotos');
+    
+    if (fotos.length > 0) {
+        let fotosHTML = '';
+        fotos.forEach(foto => {
+            fotosHTML += `
+                <div class="foto-item">
+                    <img src="/static/uploads/${foto.ruta_archivo}" 
+                         alt="Foto mantenimiento" 
+                         class="foto-detalle"
+                         onclick="ampliarFoto('/static/uploads/${foto.ruta_archivo}')">
+                    <div class="foto-tipo">${foto.tipo || 'General'}</div>
+                </div>
+            `;
+        });
+        fotosContainer.innerHTML = fotosHTML;
+    } else {
+        fotosContainer.innerHTML = '<p class="no-data">No hay fotos disponibles para este mantenimiento</p>';
+    }
+}
+
+// Función para cargar repuestos en el modal de detalle
+function cargarRepuestosDetalle(repuestos) {
+    const repuestosContainer = document.getElementById('detalleRepuestos');
+    
+    if (repuestos.length > 0) {
+        let repuestosHTML = '<div class="repuestos-grid">';
+        repuestos.forEach(repuesto => {
+            repuestosHTML += `
+                <div class="repuesto-item">
+                    <div class="repuesto-nombre">${repuesto.nombre}</div>
+                    <div class="repuesto-cantidad">Cantidad: ${repuesto.cantidad || 1}</div>
+                </div>
+            `;
+        });
+        repuestosHTML += '</div>';
+        repuestosContainer.innerHTML = repuestosHTML;
+    } else {
+        repuestosContainer.innerHTML = '<p class="no-data">No se registraron repuestos para este mantenimiento</p>';
+    }
+}
+
+  
+    // Función para cargar fotos de cada mantenimiento en la lista
+    async function cargarFotosMantenimiento(mantenimientoId) {
+        try {
+            console.log(`Cargando fotos para mantenimiento ${mantenimientoId}`);
+            const response = await fetch(`/api/mantenimientos/${mantenimientoId}`);
+            
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            const data = await response.json();
+            console.log(`Datos recibidos para ${mantenimientoId}:`, data);
+            
+            const fotosContainer = document.getElementById(`fotosPreview${mantenimientoId}`);
+            
+            if (!fotosContainer) {
+                console.error(`No se encontró el contenedor fotosPreview${mantenimientoId}`);
+                return;
+            }
+            
+            // Limpiar contenedor primero
+            fotosContainer.innerHTML = '';
+            
+            if (data.fotos && data.fotos.length > 0) {
+                console.log(`Encontradas ${data.fotos.length} fotos para ${mantenimientoId}`);
+                // Mostrar solo las primeras 3 fotos como preview
+                const fotosPreview = data.fotos.slice(0, 3);
+                fotosPreview.forEach(foto => {
+                    const img = document.createElement('img');
+                    img.src = `/static/uploads/${foto.ruta_archivo}`;
+                    img.alt = `Foto mantenimiento ${mantenimientoId}`;
+                    img.className = 'foto-miniatura';
+                    img.onclick = () => ampliarFoto(`/static/uploads/${foto.ruta_archivo}`);
+                    fotosContainer.appendChild(img);
+                });
+                
+                // Si hay más de 3 fotos, mostrar indicador
+                if (data.fotos.length > 3) {
+                    const masFotos = document.createElement('div');
+                    masFotos.className = 'mas-fotos';
+                    masFotos.textContent = `+${data.fotos.length - 3} más`;
+                    fotosContainer.appendChild(masFotos);
+                }
+            } else {
+                console.log(`No hay fotos para mantenimiento ${mantenimientoId}`);
+                fotosContainer.innerHTML = '<small>No hay fotos</small>';
+            }
+        } catch (error) {
+            console.error('Error cargando fotos:', error);
+            const fotosContainer = document.getElementById(`fotosPreview${mantenimientoId}`);
+            if (fotosContainer) {
+                fotosContainer.innerHTML = '<small>Error cargando fotos</small>';
+            }
+        }
+    }
+
+    // Función para ampliar foto
+    function ampliarFoto(rutaCompleta) {
+        // Abrir la imagen en una nueva pestaña o en un visor de imágenes
+        window.open(rutaCompleta, '_blank');
+    }
+
+    // Función para cerrar el modal de detalle
+    function cerrarModalDetalle() {
+        document.getElementById('modalDetalleMantenimiento').style.display = 'none';
+        mantenimientoDetalleActual = null;
+    }
+
+
+
+    // Cerrar modal al hacer clic fuera
+    window.onclick = function(event) {
+        const modal = document.getElementById('modalDetalleMantenimiento');
+        if (event.target === modal) {
+            cerrarModalDetalle();
+        }
+    }
+
+    // Sincronizar los selects visibles con los campos ocultos del formulario
+    document.getElementById('equipo_id').addEventListener('change', function() {
+        document.getElementById('hiddenEquipo').value = this.value;
+    });
+    
+    document.getElementById('tipo').addEventListener('change', function() {
+        document.getElementById('hiddenTipo').value = this.value;
+    });
+    
+    // Inicializar los valores ocultos con los valores actuales
+    document.getElementById('hiddenEquipo').value = document.getElementById('equipo_id').value;
+    document.getElementById('hiddenTipo').value = document.getElementById('tipo').value;
+
+    // Enviar formulario cuando cambien los selects
+    document.getElementById('equipo_id').addEventListener('change', function() {
+        document.getElementById('filtrosForm').submit();
+    });
+    
+    document.getElementById('tipo').addEventListener('change', function() {
+        document.getElementById('filtrosForm').submit();
+    });
+
+function exportarPDF() {
+    console.log('Botón Exportar PDF clickeado');
+    
+    if (!mantenimientoDetalleActual) {
+        console.error('No hay mantenimientoDetalleActual:', mantenimientoDetalleActual);
+        alert('No hay detalles de mantenimiento para exportar');
+        return;
+    }
+
+    console.log('Mantenimiento actual:', mantenimientoDetalleActual);
+
+    // Construir la URL del PDF
+    const pdfUrl = `/mantenimiento/${mantenimientoDetalleActual.id}/pdf`;
+    console.log('URL del PDF:', pdfUrl);
+
+    // Abrir el PDF en una nueva pestaña
+    window.open(pdfUrl, '_blank');
+}
+
+   
+</script>
+
+{% endblock %}

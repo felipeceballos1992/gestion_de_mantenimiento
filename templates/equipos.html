@@ -1,0 +1,700 @@
+{% extends "base.html" %}
+
+{% block title %}Equipos - Sistema de Mantenimiento{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-with-button">
+        <div class="header-text">
+            <h1>Gestión de Equipos</h1>
+            <p>Lista completa de máquinas y equipos en mantenimiento</p>
+        </div>
+        <button class="btn btn-primary" onclick="agregarEquipo()">
+            <i class="icon-plus"></i> Añadir Equipo
+        </button>
+    </div>
+</div>
+
+<!-- Resumen de equipos 
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon">🔧</div>
+        <div class="stat-info">
+            <h3>{{ equipos|length }}</h3>
+            <p>Total Equipos</p>
+        </div>
+    </div>
+    
+     <div class="stat-card">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+            <h3>{{ equipos_activos }}</h3>
+            <p>Equipos Activos</p>
+        </div>
+    </div>
+    
+   <div class="stat-card">
+        <div class="stat-icon">⚠️</div>
+        <div class="stat-info">
+            <h3>{{ equipos_mantenimiento }}</h3>
+            <p>En Mantenimiento</p>
+        </div>
+    </div>-->
+</div>
+
+<!-- Lista de equipos -->
+<div class="equipos-grid">
+    {% if equipos %}
+        {% for equipo in equipos %}
+        <div class="equipo-card">
+            <div class="equipo-header">
+                <h3>{{ equipo.nombre }}</h3>
+                <div class="equipo-actions-header">
+                    <button class="btn-icon btn-edit" onclick="editarEquipo({{ equipo.id }})" title="Editar equipo">
+                        <i class="icon-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="eliminarEquipo({{ equipo.id }})" title="Eliminar equipo">
+                        <i class="icon-delete"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="equipo-info">
+                <div class="info-item">
+                    <span class="info-label">Fabricante:</span>
+                    <span class="info-value">{{ equipo.fabricante or 'No especificado' }}</span>
+                </div>
+                
+                <div class="info-item">
+                    <span class="info-label">Ubicación:</span>
+                    <span class="info-value">{{ equipo.ubicacion or 'No especificada' }}</span>
+                </div>
+                
+                {% if equipo.potencia %}
+                <div class="info-item">
+                    <span class="info-label">Potencia:</span>
+                    <span class="info-value">{{ equipo.potencia }}</span>
+                </div>
+                {% endif %}
+                
+                {% if equipo.voltaje %}
+                <div class="info-item">
+                    <span class="info-label">Voltaje:</span>
+                    <span class="info-value">{{ equipo.voltaje }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="equipo-actions">
+                <button class="btn btn-secondary" onclick="verDetalleEquipo({{ equipo.id }})">
+                    Ver Detalle
+                </button>
+                <button class="btn btn-primary" onclick="reportarMantenimiento({{ equipo.id }})">
+                    Reportar Mtto.
+                </button>
+
+            </div>
+            
+            <!-- Información de contacto -->
+            {% if equipo.contacto_fabricante %}
+            <div class="equipo-contacto">
+                <small>Contacto: {{ equipo.contacto_fabricante }}</small>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <div class="empty-icon">🔧</div>
+            <h3>No hay equipos registrados</h3>
+            <p>Comienza agregando tus primeros equipos a la base de datos.</p>
+            <button class="btn btn-primary" onclick="agregarEquipo()">
+                Agregar Equipo
+            </button>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Modal para agregar/editar equipo -->
+<div id="modalEquipo" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitulo">Agregar Nuevo Equipo</h2>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="formEquipo">
+                <input type="hidden" id="equipoId" name="equipoId">
+                
+                <div class="form-group">
+                    <label for="nombre">Nombre del Equipo *</label>
+                    <input type="text" id="nombre" name="nombre" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="fabricante">Fabricante</label>
+                    <input type="text" id="fabricante" name="fabricante">
+                </div>
+                
+                <div class="form-group">
+                    <label for="contacto_fabricante">Contacto del Fabricante</label>
+                    <textarea id="contacto_fabricante" name="contacto_fabricante" rows="3"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label for="ubicacion">Ubicación</label>
+                    <input type="text" id="ubicacion" name="ubicacion">
+                </div>
+                
+                <div class="form-group">
+                    <label for="fecha_compra">Fecha de Compra</label>
+                    <input type="date" id="fecha_compra" name="fecha_compra">
+                </div>
+                
+                <div class="form-group">
+                    <label for="potencia">Potencia</label>
+                    <input type="text" id="potencia" name="potencia">
+                </div>
+                
+                <div class="form-group">
+                    <label for="voltaje">Voltaje</label>
+                    <input type="text" id="voltaje" name="voltaje">
+                </div>
+                
+                <div class="form-group">
+                    <label for="tipo_alimentacion">Tipo de Alimentación</label>
+                    <input type="text" id="tipo_alimentacion" name="tipo_alimentacion">
+                </div>
+                
+                <div class="form-group">
+                    <label for="potencia_motor">Potencia del Motor</label>
+                    <input type="text" id="potencia_motor" name="potencia_motor">
+                </div>
+                
+                <div class="form-group">
+                    <label for="relacion_motoreductor">Relación Motor/Reductor</label>
+                    <input type="text" id="relacion_motoreductor" name="relacion_motoreductor">
+                </div>
+                
+                <div class="form-group">
+                    <label for="diametro_polea">Diámetro de Polea</label>
+                    <input type="text" id="diametro_polea" name="diametro_polea">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Equipo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- Modal para Detalle de Equipo -->
+<!-- Modal para Detalle de Equipo -->
+<div id="modalDetalleEquipo" class="modal">
+    <div class="modal-content modal-xl">
+        <div class="modal-header">
+            <h2 id="modalTituloEquipo">Detalle del Equipo</h2>
+            <span class="close" onclick="cerrarModalDetalleEquipo()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div id="detalleEquipoContenido">
+                <!-- TODO el contenido se carga aquí -->
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary btn-lg" onclick="cerrarModalDetalleEquipo()">Cerrar</button>
+        </div>
+    </div>
+</div>
+
+
+<script>
+    // Función para ver detalle del equipo
+async function verDetalleEquipo(equipoId) {
+    console.log('=== verDetalleEquipo INICIADO ===');
+    console.log('ID del equipo:', equipoId);
+    
+    try {
+        // Solo usar UN contenedor para todo
+        document.getElementById('detalleEquipoContenido').innerHTML = '<div class="loading">Cargando detalles del equipo...</div>';
+        
+        // Mostrar el modal
+        document.getElementById('modalDetalleEquipo').style.display = 'block';
+        console.log('Modal mostrado correctamente');
+        
+        // Hacer fetch para obtener los detalles completos del equipo
+        console.log('Haciendo fetch al endpoint...');
+        const response = await fetch(`/api/equipos/${equipoId}/detalle-completo`);
+        
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Error response:', errorText);
+            throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log('Datos recibidos del API:', data);
+        
+        // Llenar el modal con los detalles
+        mostrarDetallesEquipo(data);
+        console.log('Modal poblado con datos');
+        
+    } catch (error) {
+        console.error('Error completo en verDetalleEquipo:', error);
+        document.getElementById('detalleEquipoContenido').innerHTML = `
+            <div class="error-message">
+                Error al cargar los detalles del equipo: ${error.message}
+            </div>
+        `;
+    }
+}
+
+
+// Función para mostrar los detalles en el modal
+function mostrarDetallesEquipo(data) {
+    console.log('Datos recibidos para mostrarDetallesEquipo:', data);
+    
+    // VALIDACIÓN CRÍTICA: Verificar que los datos existen
+    if (!data || !data.equipo) {
+        console.error('Datos del equipo no disponibles:', data);
+        document.getElementById('detalleEquipoContenido').innerHTML = `
+            <div class="error-message">
+                Error: No se pudieron cargar los datos del equipo
+            </div>
+        `;
+        return;
+    }
+    
+    const equipo = data.equipo;
+    const estadisticas = data.estadisticas || {};
+    const mantenimientos = data.mantenimientos_recientes || [];
+
+    // Formatear fecha de compra con validación
+    const fechaCompra = equipo.fecha_compra ? 
+        new Date(equipo.fecha_compra).toLocaleDateString('es-ES') : 
+        'No especificada';
+
+    // ... el resto de tu función permanece igual ...
+    // (pero ahora con la seguridad de que `equipo` existe)
+
+    // Construir especificaciones técnicas
+    let especificacionesHTML = '';
+    if (equipo.potencia || equipo.voltaje || equipo.tipo_alimentacion || 
+        equipo.potencia_motor || equipo.relacion_motoreductor || equipo.diametro_polea) {
+        
+        if (equipo.potencia) especificacionesHTML += `<div class="detalle-item"><label>Potencia:</label><span>${equipo.potencia}</span></div>`;
+        if (equipo.voltaje) especificacionesHTML += `<div class="detalle-item"><label>Voltaje:</label><span>${equipo.voltaje}</span></div>`;
+        if (equipo.tipo_alimentacion) especificacionesHTML += `<div class="detalle-item"><label>Tipo de Alimentación:</label><span>${equipo.tipo_alimentacion}</span></div>`;
+        if (equipo.potencia_motor) especificacionesHTML += `<div class="detalle-item"><label>Potencia del Motor:</label><span>${equipo.potencia_motor}</span></div>`;
+        if (equipo.relacion_motoreductor) especificacionesHTML += `<div class="detalle-item"><label>Relación Motor/Reductor:</label><span>${equipo.relacion_motoreductor}</span></div>`;
+        if (equipo.diametro_polea) especificacionesHTML += `<div class="detalle-item"><label>Diámetro de Polea:</label><span>${equipo.diametro_polea}</span></div>`;
+    } else {
+        especificacionesHTML = '<p class="no-data">No hay especificaciones técnicas registradas</p>';
+    }
+
+    // Construir estadísticas
+    const correctivos = estadisticas.correctivos || 0;
+    const preventivosRealizados = estadisticas.preventivos_realizados || 0;
+    const porcentajeCumplimiento = estadisticas.porcentaje_cumplimiento || 0;
+    
+    // Determinar color según el porcentaje de cumplimiento
+    let estadoCumplimiento = 'bueno';
+    let textoCumplimiento = '✅ Buen cumplimiento';
+    if (porcentajeCumplimiento < 70) {
+        estadoCumplimiento = 'critico';
+        textoCumplimiento = '⚠️ Necesita mejora';
+    } else if (porcentajeCumplimiento < 90) {
+        estadoCumplimiento = 'advertencia';
+        textoCumplimiento = '📊 Cumplimiento regular';
+    }
+
+    // Determinar estado de correctivos
+    let estadoCorrectivos = 'bueno';
+    let textoCorrectivos = '✅ Baja frecuencia de fallas';
+    if (correctivos > 10) {
+        estadoCorrectivos = 'critico';
+        textoCorrectivos = '⚠️ Alta frecuencia de fallas';
+    } else if (correctivos > 5) {
+        estadoCorrectivos = 'advertencia';
+        textoCorrectivos = '📊 Frecuencia moderada';
+    }
+
+    // Construir estadísticas HTML
+    const estadisticasHTML = `
+        <div class="estadisticas-grid">
+            <div class="estadistica-item">
+                <div class="estadistica-valor ${estadoCorrectivos}">
+                    ${correctivos}
+                </div>
+                <div class="estadistica-label">Mantenimientos Correctivos</div>
+                <div class="estadistica-desc">${textoCorrectivos}</div>
+            </div>
+            
+            <div class="estadistica-item">
+                <div class="estadistica-valor">
+                    ${preventivosRealizados}
+                </div>
+                <div class="estadistica-label">Preventivos Realizados</div>
+            </div>
+            
+
+        </div>
+    `;
+
+    // Construir mantenimientos recientes HTML
+    let mantenimientosHTML = '';
+    if (mantenimientos && mantenimientos.length > 0) {
+        mantenimientos.forEach(mtto => {
+            const fechaFormateada = new Date(mtto.fecha).toLocaleDateString('es-ES');
+            const descripcionCorta = mtto.descripcion ? 
+                (mtto.descripcion.length > 100 ? mtto.descripcion.substring(0, 100) + '...' : mtto.descripcion) : 
+                'Sin descripción';
+                
+            mantenimientosHTML += `
+                <div class="mantenimiento-item">
+                    <div class="mantenimiento-fecha">${fechaFormateada}</div>
+                    <div class="mantenimiento-tipo badge badge-${mtto.tipo}">${mtto.tipo}</div>
+                    <div class="mantenimiento-desc">${descripcionCorta}</div>
+                    <button class="btn btn-sm btn-outline" onclick="verDetalleMantenimientoDesdeEquipo(${mtto.id})">Ver Detalle</button>
+                </div>
+            `;
+        });
+    } else {
+        mantenimientosHTML = '<p class="no-data">No hay mantenimientos recientes para este equipo</p>';
+    }
+
+    // Construir todo el contenido
+    const contenido = `
+        <div class="detalle-contenido">
+            <!-- Columna izquierda -->
+            <div class="columna-izquierda">
+<div class="detalle-section">
+    <h3 data-icon="📋">Información General</h3>
+                    <div class="detalle-grid">
+                        <div class="detalle-item">
+                            <label>Nombre:</label>
+                            <span>${equipo.nombre || 'N/A'}</span>
+                        </div>
+                        <div class="detalle-item">
+                            <label>Fabricante:</label>
+                            <span>${equipo.fabricante || 'N/A'}</span>
+                        </div>
+                        <div class="detalle-item">
+                            <label>Ubicación:</label>
+                            <span>${equipo.ubicacion || 'N/A'}</span>
+                        </div>
+                        <div class="detalle-item">
+                            <label>Fecha de Compra:</label>
+                            <span>${fechaCompra}</span>
+                        </div>
+                    </div>
+                </div>
+
+<div class="detalle-section">
+    <h3 data-icon="⚙️">Especificaciones Técnicas</h3>
+                    <div class="detalle-grid">
+                        ${especificacionesHTML}
+                    </div>
+                </div>
+
+                ${equipo.contacto_fabricante ? `
+<div class="detalle-section">
+    <h3 data-icon="📞">Contacto del Fabricante</h3>
+                    <div class="contacto-content">
+                        <p style="margin: 0; color: #495057; line-height: 1.5;">${equipo.contacto_fabricante}</p>
+                    </div>
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- Columna derecha -->
+            <div class="columna-derecha">
+<div class="detalle-section">
+    <h3 data-icon="📊">Estadísticas de Mantenimiento</h3>
+                    ${estadisticasHTML}
+                </div>
+
+<div class="detalle-section">
+    <h3 data-icon="🛠️">Mantenimientos Recientes</h3>
+                    <div class="mantenimientos-lista">
+                        ${mantenimientosHTML}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('detalleEquipoContenido').innerHTML = contenido;
+}
+
+// Función para mostrar estadísticas
+function mostrarEstadisticasEquipo(estadisticas) {
+    const estadisticasContainer = document.getElementById('estadisticasEquipo');
+    
+    const correctivos = estadisticas.correctivos || 0;
+    const preventivosRealizados = estadisticas.preventivos_realizados || 0;
+    const porcentajeCumplimiento = estadisticas.porcentaje_cumplimiento || 0;
+    
+    // Determinar estados
+    let estadoCumplimiento = 'bueno';
+    let textoCumplimiento = '✅ Buen cumplimiento';
+    if (porcentajeCumplimiento < 70) {
+        estadoCumplimiento = 'critico';
+        textoCumplimiento = '⚠️ Necesita mejora';
+    } else if (porcentajeCumplimiento < 90) {
+        estadoCumplimiento = 'advertencia';
+        textoCumplimiento = '📊 Cumplimiento regular';
+    }
+
+    let estadoCorrectivos = 'bueno';
+    let textoCorrectivos = '✅ Baja frecuencia de fallas';
+    if (correctivos > 10) {
+        estadoCorrectivos = 'critico';
+        textoCorrectivos = '⚠️ Alta frecuencia de fallas';
+    } else if (correctivos > 5) {
+        estadoCorrectivos = 'advertencia';
+        textoCorrectivos = '📊 Frecuencia moderada';
+    }
+
+    estadisticasContainer.innerHTML = `
+        <div class="estadistica-item">
+            <div class="estadistica-valor ${estadoCorrectivos}">
+                ${correctivos}
+            </div>
+            <div class="estadistica-label">Mantenimientos Correctivos</div>
+            <div class="estadistica-desc">${textoCorrectivos}</div>
+        </div>
+        
+        <div class="estadistica-item">
+            <div class="estadistica-valor">
+                ${preventivosRealizados}
+            </div>
+            <div class="estadistica-label">Preventivos Realizados</div>
+        </div>
+        
+        <div class="estadistica-item">
+            <div class="estadistica-valor ${estadoCumplimiento}">
+                ${porcentajeCumplimiento}%
+            </div>
+            <div class="estadistica-label">Cumplimiento de Preventivos</div>
+            <div class="estadistica-desc">${textoCumplimiento}</div>
+        </div>
+    `;
+}
+
+// Función para mostrar mantenimientos recientes
+function mostrarMantenimientosRecientes(mantenimientos) {
+    const mantenimientosContainer = document.getElementById('mantenimientosRecientes');
+    
+    if (mantenimientos && mantenimientos.length > 0) {
+        let mantenimientosHTML = '';
+        mantenimientos.forEach(mtto => {
+            const fechaFormateada = new Date(mtto.fecha).toLocaleDateString('es-ES');
+            const descripcionCorta = mtto.descripcion ? 
+                (mtto.descripcion.length > 100 ? mtto.descripcion.substring(0, 100) + '...' : mtto.descripcion) : 
+                'Sin descripción';
+                
+            mantenimientosHTML += `
+                <div class="mantenimiento-item">
+                    <div class="mantenimiento-fecha">${fechaFormateada}</div>
+                    <div class="mantenimiento-tipo badge badge-${mtto.tipo}">${mtto.tipo}</div>
+                    <div class="mantenimiento-desc">${descripcionCorta}</div>
+                    <button class="btn btn-sm btn-outline" onclick="verDetalleMantenimientoDesdeEquipo(${mtto.id})">Ver Detalle</button>
+                </div>
+            `;
+        });
+        mantenimientosContainer.innerHTML = mantenimientosHTML;
+    } else {
+        mantenimientosContainer.innerHTML = '<p class="no-data">No hay mantenimientos recientes para este equipo</p>';
+    }
+}
+
+// Función para ver detalle de mantenimiento desde el modal de equipo
+function verDetalleMantenimientoDesdeEquipo(mantenimientoId) {
+    cerrarModalDetalleEquipo();
+    // Usar la función existente de mantenimientos
+    setTimeout(() => {
+        verDetalleMantenimiento(mantenimientoId);
+    }, 300);
+}
+
+
+// Función para cerrar el modal de detalle del equipo
+function cerrarModalDetalleEquipo() {
+    document.getElementById('modalDetalleEquipo').style.display = 'none';
+}
+// Cerrar modal de detalle de equipo al hacer clic fuera
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('modalDetalleEquipo');
+    if (e.target === modal) {
+        cerrarModalDetalleEquipo();
+    }
+});
+
+    // Función para reportar mantenimiento para un equipo específico
+    function reportarMantenimiento(equipoId) {
+        // Redirigir al formulario de reportar con el equipo pre-seleccionado
+        window.location.href = `/reportar?equipo=${equipoId}`;
+    }
+// Función auxiliar para formatear fecha de YYYY-MM-DD a formato input date
+function formatDateForInput(dateString) {
+    if (!dateString) return '';
+    
+    // Si ya está en formato YYYY-MM-DD, devolverlo tal cual
+    if (dateString.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        return dateString;
+    }
+    
+    // Si está en otro formato, intentar convertirlo
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
+    }
+    
+    return '';
+}
+
+function agregarEquipo() {
+    document.getElementById('modalTitulo').textContent = 'Agregar Nuevo Equipo';
+    document.getElementById('formEquipo').reset();
+    document.getElementById('equipoId').value = '';
+    
+    // Establecer la fecha de compra a hoy
+    document.getElementById('fecha_compra').value = new Date().toISOString().split('T')[0];
+    
+    document.getElementById('modalEquipo').style.display = 'block';
+}
+
+    // Función para editar equipo - CORREGIDA
+    async function editarEquipo(equipoId) {
+        try {
+            const response = await fetch(`/api/equipos/${equipoId}`);
+            const equipo = await response.json();
+            
+            if (response.ok) {
+                document.getElementById('modalTitulo').textContent = 'Editar Equipo';
+                document.getElementById('equipoId').value = equipo.id;
+                document.getElementById('nombre').value = equipo.nombre || '';
+                document.getElementById('fabricante').value = equipo.fabricante || '';
+                document.getElementById('contacto_fabricante').value = equipo.contacto_fabricante || '';
+                document.getElementById('ubicacion').value = equipo.ubicacion || '';
+		document.getElementById('fecha_compra').value = equipo.fecha_compra ? formatDateForInput(equipo.fecha_compra) : '';
+                document.getElementById('potencia').value = equipo.potencia || '';
+                document.getElementById('voltaje').value = equipo.voltaje || '';
+                document.getElementById('tipo_alimentacion').value = equipo.tipo_alimentacion || '';
+                document.getElementById('potencia_motor').value = equipo.potencia_motor || '';
+                document.getElementById('relacion_motoreductor').value = equipo.relacion_motoreductor || '';
+                document.getElementById('diametro_polea').value = equipo.diametro_polea || '';
+                
+                document.getElementById('modalEquipo').style.display = 'block';
+            } else {
+                alert('Error al cargar los datos del equipo: ' + equipo.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al cargar los datos del equipo');
+        }
+    }
+
+    // Función para eliminar equipo - CORREGIDA
+    async function eliminarEquipo(equipoId) {
+        if (confirm('¿Estás seguro de que deseas eliminar este equipo?')) {
+            try {
+                const response = await fetch(`/equipos/eliminar/${equipoId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const errorText = await response.text();
+                    alert('Error al eliminar el equipo');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al eliminar el equipo');
+            }
+        }
+    }
+
+    // Función para cerrar el modal
+    function cerrarModal() {
+        document.getElementById('modalEquipo').style.display = 'none';
+    }
+
+    // Manejar envío del formulario - CORREGIDO
+    document.getElementById('formEquipo').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const equipoId = document.getElementById('equipoId').value;
+        const formData = new FormData(this);
+        
+        let url = '/equipos/nuevo';
+        let method = 'POST';
+        
+        if (equipoId) {
+            url = `/equipos/editar/${equipoId}`;
+            method = 'POST';
+        }
+        
+        try {
+            const response = await fetch(url, {
+                method: method,
+                body: formData
+            });
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const errorText = await response.text();
+                alert('Error al guardar el equipo');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al guardar el equipo');
+        }
+    });
+
+    // Cerrar modal al hacer clic en la X
+    document.querySelector('.close').addEventListener('click', cerrarModal);
+
+    // Cerrar modal al hacer clic fuera del contenido
+    window.addEventListener('click', function(e) {
+        const modal = document.getElementById('modalEquipo');
+        if (e.target === modal) {
+            cerrarModal();
+        }
+    });
+
+    // Mostrar mensajes de éxito/error desde la URL
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const success = urlParams.get('success');
+        const error = urlParams.get('error');
+        
+        if (success) {
+            alert('Éxito: ' + success);
+            // Limpiar parámetros de la URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+        }
+        if (error) {
+            alert('Error: ' + error);
+            // Limpiar parámetros de la URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+        }
+
+        // Si hay parámetros en la URL para pre-seleccionar equipo en reportar
+        const equipoSeleccionado = urlParams.get('equipo');
+        if (equipoSeleccionado) {
+            // Aquí podrías destacar visualmente el equipo seleccionado
+            console.log('Equipo seleccionado:', equipoSeleccionado);
+        }
+    });
+</script>
+{% endblock %}

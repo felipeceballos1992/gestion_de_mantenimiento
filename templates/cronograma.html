@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+
+{% block title %}Cronograma de Mantenimiento{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Cronograma de Mantenimiento</h1>
+    <p>Gestiona y visualiza los mantenimientos programados</p>
+</div>
+
+<!-- Botón Nuevo Cronograma -->
+<div class="page-actions">
+    <button class="btn btn-primary" onclick="abrirModalNuevo()">
+        ➕ Nuevo Cronograma
+    </button>
+</div>
+
+<!-- Contenido de Lista -->
+<div id="lista" class="tab-content active">
+    <!-- Filtros -->
+    <div class="filters-section">
+        <div class="filter-group">
+            <label for="equipo_id">Equipo:</label>
+            <select id="equipo_id" name="equipo_id" onchange="actualizarYEnviar()">
+                <option value="">Todos los equipos</option>
+                {% for equipo in equipos %}
+                <option value="{{ equipo.id }}" 
+                    {% if filtros_actuales.equipo_id == equipo.id|string %}selected{% endif %}>
+                    {{ equipo.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label for="tipo">Tipo:</label>
+            <select id="tipo" name="tipo" onchange="actualizarYEnviar()">
+                <option value="">Todos los tipos</option>
+                <option value="preventivo" {% if filtros_actuales.tipo == 'preventivo' %}selected{% endif %}>Preventivo</option>
+                <option value="correctivo" {% if filtros_actuales.tipo == 'correctivo' %}selected{% endif %}>Correctivo</option>
+                <option value="predictivo" {% if filtros_actuales.tipo == 'predictivo' %}selected{% endif %}>Predictivo</option>
+            </select>
+        </div>
+        
+        <!-- Nuevos filtros de fecha para próximo mantenimiento -->
+        <div class="filter-group">
+            <label for="fecha_desde">Próximo desde:</label>
+            <input type="date" id="fecha_desde" 
+                   name="fecha_desde"
+                   value="{{ filtros_actuales.fecha_desde }}"
+                   onchange="actualizarYEnviar()">
+        </div>
+
+        <div class="filter-group">
+            <label for="fecha_hasta">Próximo hasta:</label>
+            <input type="date" id="fecha_hasta" 
+                   name="fecha_hasta"
+                   value="{{ filtros_actuales.fecha_hasta }}"
+                   onchange="actualizarYEnviar()">
+        </div>
+        
+        <!-- Botones a la derecha -->
+
+<!-- En la sección filter-actions, después del botón Limpiar -->
+<div class="filter-actions">
+    <a href="{{ url_for('cronograma') }}" class="btn btn-secondary">Limpiar</a>
+    <a href="#" onclick="generarPDFCronograma()" class="btn btn-primary">
+        📄 Exportar PDF
+    </a>
+</div>
+        
+        <!-- Form oculto para enviar los filtros -->
+        <form method="GET" action="{{ url_for('cronograma') }}" id="filtrosForm" style="display: none;">
+            <input type="hidden" name="equipo_id" id="hiddenEquipo" value="{{ filtros_actuales.equipo_id or '' }}">
+            <input type="hidden" name="tipo" id="hiddenTipo" value="{{ filtros_actuales.tipo or '' }}">
+            <input type="hidden" name="fecha_desde" id="hiddenFechaDesde" value="{{ filtros_actuales.fecha_desde or '' }}">
+            <input type="hidden" name="fecha_hasta" id="hiddenFechaHasta" value="{{ filtros_actuales.fecha_hasta or '' }}">
+            <input type="hidden" name="pagina" value="1">
+        </form>
+    </div>
+
+    <!-- Tabla de Cronogramas -->
+    <div class="table-container">
+        <div class="table-header">
+            <h3>Cronogramas de Mantenimiento</h3>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Equipo</th>
+                    <th>Tipo</th>
+                    <th>Subcategoría</th>
+                    <th>Frecuencia (días)</th>
+                    <th>Último Mantenimiento</th>
+                    <th>Próximo Mantenimiento</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if cronogramas %}
+                    {% for cronograma in cronogramas %}
+                    <tr>
+                        <td>{{ cronograma.equipo_nombre }}</td>
+                        <td>
+                            <span class="badge badge-{{ cronograma.tipo|lower }}">
+                                {{ cronograma.tipo }}
+                            </span>
+                        </td>
+                        <td>{{ cronograma.subcategoria or '-' }}</td>
+                        <td>{{ cronograma.frecuencia or '-' }}</td>
+                        <td>
+                            {% if cronograma.ultimo_mtto %}
+                                {{ cronograma.ultimo_mtto.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cronograma.proximo_mtto %}
+                                <span class="fecha-proximo {% if hoy and cronograma.proximo_mtto < hoy %}vencido{% endif %}">
+                                    {{ cronograma.proximo_mtto.strftime('%d/%m/%Y') }}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="acciones">
+                                <a href="{{ url_for('reportar_mantenimiento') }}?cronograma_id={{ cronograma.id }}" 
+                                   class="btn btn-sm btn-success" title="Reportar Mantenimiento">✅</a>
+                                <button class="btn btn-sm btn-primary" title="Editar" onclick="editarCronograma({{ cronograma.id }})">✏️</button>
+                                <button class="btn btn-sm btn-danger" title="Eliminar" onclick="eliminarCronograma({{ cronograma.id }})">🗑️</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" class="no-data">
+                        {% if filtros_actuales.equipo_id or filtros_actuales.tipo or filtros_actuales.fecha_desde or filtros_actuales.fecha_hasta %}
+                            No hay cronogramas que coincidan con los filtros aplicados
+                        {% else %}
+                            No hay cronogramas registrados
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+
+        <!-- Paginación actualizada con nuevos filtros -->
+        {% if total_paginas and total_paginas > 1 %}
+        <div class="pagination">
+            {% if pagina_actual > 1 %}
+                <a href="{{ url_for('cronograma', pagina=pagina_actual-1, equipo_id=filtros_actuales.equipo_id, tipo=filtros_actuales.tipo, fecha_desde=filtros_actuales.fecha_desde, fecha_hasta=filtros_actuales.fecha_hasta) }}" 
+                   class="btn btn-secondary">
+                    ← Anterior
+                </a>
+            {% endif %}
+            
+            <span class="pagination-info">
+                Página {{ pagina_actual }} de {{ total_paginas }}
+                {% if filtros_actuales.equipo_id or filtros_actuales.tipo or filtros_actuales.fecha_desde or filtros_actuales.fecha_hasta %}
+                    (filtrados)
+                {% endif %}
+            </span>
+            
+            {% if pagina_actual < total_paginas %}
+                <a href="{{ url_for('cronograma', pagina=pagina_actual+1, equipo_id=filtros_actuales.equipo_id, tipo=filtros_actuales.tipo, fecha_desde=filtros_actuales.fecha_desde, fecha_hasta=filtros_actuales.fecha_hasta) }}" 
+                   class="btn btn-secondary">
+                    Siguiente →
+                </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Los modales se mantienen igual -->
+<!-- Modal para Nuevo/Editar Cronograma -->
+<div id="modalCronograma" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modalTitulo">Nuevo Cronograma</h2>
+            <span class="close" onclick="cerrarModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <form id="formCronograma" method="POST">
+                <div class="form-group">
+                    <label for="modal_equipo_id">Equipo:</label>
+                    <select id="modal_equipo_id" name="equipo_id" required>
+                        <option value="">Seleccionar equipo</option>
+                        {% for equipo in equipos %}
+                        <option value="{{ equipo.id }}">{{ equipo.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modal_tipo">Tipo de Mantenimiento:</label>
+                    <select id="modal_tipo" name="tipo" required>
+                        <option value="">Seleccionar tipo</option>
+                        <option value="preventivo">Preventivo</option>
+                        <option value="correctivo">Correctivo</option>
+                        <option value="predictivo">Predictivo</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subcategoria">Subcategoría:</label>
+                    <input type="text" id="subcategoria" name="subcategoria" placeholder="Ej: Cambio de aceite, Limpieza general...">
+                </div>
+                
+                <div class="form-group">
+                    <label for="frecuencia">Frecuencia (días):</label>
+                    <input type="number" id="frecuencia" name="frecuencia" min="1" required placeholder="Ej: 30, 90, 365...">
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="cerrarModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cronograma</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmación Eliminar -->
+<div id="modalConfirmar" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Confirmar Eliminación</h2>
+            <span class="close" onclick="cerrarModalConfirmar()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p>¿Estás seguro de que quieres eliminar este cronograma?</p>
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary" onclick="cerrarModalConfirmar()">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarEliminar">Eliminar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Variables globales
+    let cronogramaIdAEliminar = null;
+
+    // Funciones del Modal (se mantienen igual)
+    function abrirModalNuevo() {
+        document.getElementById('modalTitulo').textContent = 'Nuevo Cronograma';
+        document.getElementById('formCronograma').reset();
+        document.getElementById('formCronograma').action = "{{ url_for('crear_cronograma') }}";
+        document.getElementById('modalCronograma').style.display = 'block';
+    }
+
+    async function editarCronograma(id) {
+        try {
+            const response = await fetch(`/api/cronograma/${id}`);
+            const cronograma = await response.json();
+            
+            if (response.ok) {
+                document.getElementById('modal_equipo_id').value = cronograma.equipo_id;
+                document.getElementById('modal_tipo').value = cronograma.tipo;
+                document.getElementById('subcategoria').value = cronograma.subcategoria || '';
+                document.getElementById('frecuencia').value = cronograma.frecuencia;
+                document.getElementById('modalTitulo').textContent = 'Editar Cronograma';
+                document.getElementById('formCronograma').action = `/cronograma/${id}/editar`;
+                document.getElementById('modalCronograma').style.display = 'block';
+            } else {
+                alert('Error al cargar los datos del cronograma');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error al cargar los datos del cronograma');
+        }
+    }
+
+    function cerrarModal() {
+        document.getElementById('modalCronograma').style.display = 'none';
+    }
+
+    function eliminarCronograma(id) {
+        cronogramaIdAEliminar = id;
+        document.getElementById('modalConfirmar').style.display = 'block';
+    }
+
+    function cerrarModalConfirmar() {
+        document.getElementById('modalConfirmar').style.display = 'none';
+        cronogramaIdAEliminar = null;
+    }
+
+    // Confirmar eliminación
+    document.getElementById('btnConfirmarEliminar').addEventListener('click', function() {
+        if (cronogramaIdAEliminar) {
+            fetch(`/cronograma/${cronogramaIdAEliminar}/eliminar`, {
+                method: 'DELETE',
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error al eliminar el cronograma');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error al eliminar el cronograma');
+            });
+            
+            cerrarModalConfirmar();
+        }
+    });
+
+    // Cerrar modales al hacer clic fuera
+    window.onclick = function(event) {
+        const modal = document.getElementById('modalCronograma');
+        const modalConfirmar = document.getElementById('modalConfirmar');
+        
+        if (event.target === modal) {
+            cerrarModal();
+        }
+        if (event.target === modalConfirmar) {
+            cerrarModalConfirmar();
+        }
+    }
+
+    // ===== NUEVA LÓGICA DE FILTROS =====
+    
+    // Inicializar cuando el DOM esté listo
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Página de cronogramas cargada - Filtros iniciales:', {
+            equipo_id: document.getElementById('equipo_id').value,
+            tipo: document.getElementById('tipo').value,
+            fecha_desde: document.getElementById('fecha_desde').value,
+            fecha_hasta: document.getElementById('fecha_hasta').value
+        });
+        
+        // Configurar eventos para los selects
+        document.getElementById('equipo_id').addEventListener('change', actualizarYEnviar);
+        document.getElementById('tipo').addEventListener('change', actualizarYEnviar);
+    });
+
+    function actualizarYEnviar() {
+        console.log('Actualizando filtros y enviando...');
+        
+        // Obtener referencias a todos los elementos
+        const equipoSelect = document.getElementById('equipo_id');
+        const tipoSelect = document.getElementById('tipo');
+        const fechaDesdeInput = document.getElementById('fecha_desde');
+        const fechaHastaInput = document.getElementById('fecha_hasta');
+        
+        // Actualizar campos ocultos
+        document.getElementById('hiddenEquipo').value = equipoSelect.value;
+        document.getElementById('hiddenTipo').value = tipoSelect.value;
+        document.getElementById('hiddenFechaDesde').value = fechaDesdeInput.value;
+        document.getElementById('hiddenFechaHasta').value = fechaHastaInput.value;
+        
+        console.log('Valores actualizados de filtros:', {
+            equipo: equipoSelect.value,
+            tipo: tipoSelect.value,
+            desde: fechaDesdeInput.value,
+            hasta: fechaHastaInput.value
+        });
+        
+        // Enviar formulario
+        document.getElementById('filtrosForm').submit();
+    }
+
+// Función para generar PDF con los filtros actuales
+function generarPDFCronograma() {
+    console.log('Generando PDF de cronograma...');
+    
+    // Usar los valores actuales de los inputs visibles
+    const equipoFilter = document.getElementById('equipo_id').value;
+    const tipoFilter = document.getElementById('tipo').value;
+    const fechaDesdeFilter = document.getElementById('fecha_desde').value;
+    const fechaHastaFilter = document.getElementById('fecha_hasta').value;
+    
+    let url = '/cronograma/pdf?';
+    const params = [];
+    
+    if (equipoFilter) {
+        params.push(`equipo_id=${equipoFilter}`);
+    }
+    if (tipoFilter) {
+        params.push(`tipo=${tipoFilter}`);
+    }
+    if (fechaDesdeFilter) {
+        params.push(`fecha_desde=${fechaDesdeFilter}`);
+    }
+    if (fechaHastaFilter) {
+        params.push(`fecha_hasta=${fechaHastaFilter}`);
+    }
+    
+    url += params.join('&');
+    console.log('URL del PDF:', url);
+    window.open(url, '_blank');
+}
+</script>
+{% endblock %}

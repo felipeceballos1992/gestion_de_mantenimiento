@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema Mantenimiento</title>
+    <!-- IMPORTANTE: Solo carga login.css, NO style.css -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+</head>
+<body class="login-page">  <!-- IMPORTANTE: clase login-page -->
+    <div class="login-container">
+        <div class="logo">
+            <span>🔧</span>
+            <h1>Mantenimiento</h1>
+            <p>Sistema de Gestión</p>
+        </div>
+        
+        <!-- Mensajes Flash -->
+        <div class="flash-messages">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash-message flash-{{ category }}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+        </div>
+        
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label for="usuario">Usuario</label>
+                <input type="text" id="usuario" name="usuario" placeholder="Ingrese su usuario" required 
+                       value="{{ request.form.usuario if request.method == 'POST' else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" name="password" placeholder="Ingrese su contraseña" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Seleccione su rol</label>
+                <div class="role-selection">
+                    <label class="role-option {% if request.method == 'POST' and request.form.rol == 'operario' %}selected{% endif %}">
+                        <input type="radio" name="rol" value="operario" required 
+                               {% if request.method == 'POST' and request.form.rol == 'operario' %}checked{% endif %}>
+                        <span>👨‍🔧</span>
+                        Operario
+                    </label>
+                    <label class="role-option {% if request.method == 'POST' and request.form.rol == 'gerente' %}selected{% endif %}">
+                        <input type="radio" name="rol" value="gerente" required
+                               {% if request.method == 'POST' and request.form.rol == 'gerente' %}checked{% endif %}>
+                        <span>👔</span>
+                        Gerente
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-login">Ingresar al Sistema</button>
+        </form>
+    </div>
+
+    <script>
+        // Selección de rol
+        const roleOptions = document.querySelectorAll('.role-option');
+        
+        roleOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                const radio = option.querySelector('input[type="radio"]');
+                radio.checked = true;
+                
+                roleOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+            });
+        });
+        
+        // Seleccionar operario por defecto si no hay selección previa
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkedRadio = document.querySelector('input[name="rol"]:checked');
+            if (!checkedRadio) {
+                const operarioOption = document.querySelector('input[value="operario"]');
+                if (operarioOption) {
+                    operarioOption.checked = true;
+                    operarioOption.closest('.role-option').classList.add('selected');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

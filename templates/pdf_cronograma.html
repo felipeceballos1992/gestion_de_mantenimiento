@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ titulo_reporte }}</title>
+    <style>
+        /* Mantén todos los estilos igual que antes */
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+            color: #333;
+        }
+        
+        .page {
+            page-break-after: always;
+            padding: 20px;
+        }
+        
+        .page:last-child {
+            page-break-after: auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #333;
+            padding-bottom: 10px;
+        }
+        
+        .title {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 0;
+        }
+        
+        .subtitle {
+            font-size: 14px;
+            color: #666;
+            margin: 5px 0;
+        }
+        
+        .filters {
+            font-size: 11px;
+            color: #888;
+            margin: 10px 0;
+        }
+        
+        .calendar-month {
+            margin-bottom: 30px;
+        }
+        
+        .month-title {
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 15px 0;
+            background-color: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .calendar-grid {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .calendar-grid th {
+            background-color: #333;
+            color: white;
+            padding: 8px;
+            text-align: center;
+            font-size: 10px;
+            width: 14.28%;
+        }
+        
+        .calendar-grid td {
+            border: 1px solid #ddd;
+            height: 80px;
+            vertical-align: top;
+            padding: 4px;
+            font-size: 10px;
+        }
+        
+        .day-number {
+            font-weight: bold;
+            margin-bottom: 3px;
+            display: block;
+        }
+        
+        .event {
+            background-color: #e8f4fd;
+            border-left: 3px solid #2196F3;
+            padding: 2px 4px;
+            margin: 1px 0;
+            border-radius: 2px;
+            font-size: 9px;
+            line-height: 1.2;
+        }
+        
+        .event.vencido {
+            background-color: #ffebee;
+            border-left-color: #f44336;
+            color: #c62828;
+        }
+        
+        .event.preventivo {
+            background-color: #e8f5e8;
+            border-left-color: #4CAF50;
+        }
+        
+        .event.correctivo {
+            background-color: #fff3e0;
+            border-left-color: #FF9800;
+        }
+        
+        .ver-lista {
+            background-color: #f5f5f5;
+            border: 1px dashed #999;
+            padding: 2px 4px;
+            text-align: center;
+            font-size: 8px;
+            color: #666;
+            border-radius: 2px;
+        }
+        
+        .other-month {
+            background-color: #f9f9f9;
+            color: #999;
+        }
+        
+        .list-section {
+            margin-top: 30px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: bold;
+            margin: 20px 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .data-table th {
+            background-color: #333;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            font-size: 10px;
+        }
+        
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            font-size: 10px;
+        }
+        
+        .data-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        .vencido-row {
+            background-color: #ffebee !important;
+            color: #c62828;
+        }
+        
+        .badge {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 9px;
+            font-weight: bold;
+        }
+        
+        .badge-preventivo {
+            background-color: #4CAF50;
+            color: white;
+        }
+        
+        .badge-correctivo {
+            background-color: #FF9800;
+            color: white;
+        }
+        
+        .report-info {
+            font-size: 10px;
+            color: #666;
+            text-align: right;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    {% for calendario in calendarios_mensuales %}
+    <div class="page">
+        <div class="header">
+            <h1 class="title">{{ titulo_reporte }}</h1>
+            <div class="subtitle">Vista de Calendario - {{ calendario.mes_nombre }}</div>
+            <div class="filters">Generado el: {{ fecha_generacion }}</div>
+        </div>
+        
+        <div class="calendar-month">
+            <div class="month-title">{{ calendario.mes_nombre }}</div>
+            
+            <table class="calendar-grid">
+                <thead>
+                    <tr>
+                        <th>Dom</th>
+                        <th>Lun</th>
+                        <th>Mar</th>
+                        <th>Mié</th>
+                        <th>Jue</th>
+                        <th>Vie</th>
+                        <th>Sáb</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for semana in calendario.semanas %}
+                    <tr>
+                        {% for dia in semana %}
+                        <td class="{% if not dia.es_mes_actual %}other-month{% endif %}">
+                            <span class="day-number">{{ dia.fecha.day }}</span>
+                            
+                            {% if dia.eventos %}
+                                {% for evento in dia.eventos %}
+                                    <div class="event {{ evento.tipo }} {% if evento.proximo_mtto < hoy %}vencido{% endif %}">
+                                        {{ evento.equipo_nombre }}
+                                    </div>
+                                {% endfor %}
+                                
+                                {% if dia.hay_mas_eventos %}
+                                    <div class="ver-lista">+{{ dia.total_eventos - 2 }} más</div>
+                                {% endif %}
+                            {% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="report-info">
+            Página {{ loop.index }} de {{ loop.length + 1 }} - Calendario {{ calendario.mes_nombre }}
+        </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Página de listado -->
+    <div class="page">
+        <div class="header">
+            <h1 class="title">{{ titulo_reporte }}</h1>
+            <div class="subtitle">Listado Detallado</div>
+            <div class="filters">Generado el: {{ fecha_generacion }}</div>
+        </div>
+        
+        <div class="list-section">
+            <div class="section-title">Cronogramas de Mantenimiento</div>
+            
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Equipo</th>
+                        <th>Tipo</th>
+                        <th>Subcategoría</th>
+                        <th>Frecuencia (días)</th>
+                        <th>Último Mantenimiento</th>
+                        <th>Próximo Mantenimiento</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cronograma in cronogramas %}
+                    <tr class="{% if cronograma.proximo_mtto and cronograma.proximo_mtto < hoy %}vencido-row{% endif %}">
+                        <td>{{ cronograma.equipo_nombre }}</td>
+                        <td>
+                            <span class="badge badge-{{ cronograma.tipo }}">
+                                {{ cronograma.tipo }}
+                            </span>
+                        </td>
+                        <td>{{ cronograma.subcategoria or '-' }}</td>
+                        <td>{{ cronograma.frecuencia or '-' }}</td>
+                        <td>
+                            {% if cronograma.ultimo_mtto %}
+                                {{ cronograma.ultimo_mtto.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cronograma.proximo_mtto %}
+                                {{ cronograma.proximo_mtto.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if cronograma.proximo_mtto %}
+                                {% if cronograma.proximo_mtto < hoy %}
+                                    <span style="color: #c62828; font-weight: bold;">VENCIDO</span>
+                                {% else %}
+                                    PENDIENTE
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="report-info">
+            Página {{ calendarios_mensuales|length + 1 }} de {{ calendarios_mensuales|length + 1 }} - Listado Detallado
+        </div>
+    </div>
+</body>
+</html>

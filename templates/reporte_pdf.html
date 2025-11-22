@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.4;
+            color: #333;
+            font-size: 12px;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 10px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 24px;
+        }
+        
+        .header .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        
+        .section {
+            margin-bottom: 15px;
+            page-break-inside: avoid;
+        }
+        
+        .section h2 {
+            background-color: #34495e;
+            color: white;
+            padding: 8px 12px;
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            border-radius: 4px;
+        }
+        
+        .grid-2col {
+            display: table;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .grid-2col > div {
+            display: table-cell;
+            width: 50%;
+            vertical-align: top;
+        }
+        
+        .info-item {
+            margin-bottom: 8px;
+        }
+        
+        .info-label {
+            font-weight: bold;
+            color: #2c3e50;
+            display: inline-block;
+            width: 120px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .badge-preventivo { background: #d4edda; color: #155724; }
+        .badge-correctivo { background: #f8d7da; color: #721c24; }
+        .badge-predictivo { background: #d1ecf1; color: #0c5460; }
+        .badge-completado { background: #d4edda; color: #155724; }
+        .badge-pendiente { background: #fff3cd; color: #856404; }
+        
+        .fotos-grid {
+            display: table;
+            width: 100%;
+            margin-top: 10px;
+        }
+        
+.foto-item {
+    width: 45%; /* Ocupa casi mitad del ancho */
+    margin: 2.5%;
+    display: inline-block;
+}
+
+.foto-item img {
+    width: 100%;  /* Se adapta al contenedor */
+    height: auto; /* Mantiene proporción */
+    max-height: 250px;
+    object-fit: contain;
+}
+        
+        .foto-tipo {
+            font-size: 10px;
+            color: #666;
+            margin-top: 2px;
+        }
+        
+        .repuestos-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        
+        .repuestos-table th,
+        .repuestos-table td {
+            border: 1px solid #ddd;
+            padding: 6px 8px;
+            text-align: left;
+        }
+        
+        .repuestos-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        
+        .grafica {
+            text-align: center;
+            margin: 15px 0;
+        }
+        
+        .grafica img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .grafica-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        
+        .footer {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 10px;
+            color: #666;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        
+        .descripcion-box {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid #3498db;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>REPORTE DE MANTENIMIENTO</h1>
+        <div class="subtitle">Sistema de Gestión de Mantenimiento</div>
+        <div style="color: #666; font-size: 11px;">
+            Generado el {{ fecha_reporte }}
+        </div>
+    </div>
+
+    <!-- Información General -->
+    <div class="section">
+        <h2>INFORMACIÓN GENERAL</h2>
+        <div class="grid-2col">
+            <div>
+                <div class="info-item">
+                    <span class="info-label">Equipo:</span>
+                    {{ mantenimiento.equipo_nombre }}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Fabricante:</span>
+                    {{ mantenimiento.fabricante or 'N/A' }}
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Ubicación:</span>
+                    {{ mantenimiento.ubicacion or 'N/A' }}
+                </div>
+            </div>
+            <div>
+                <div class="info-item">
+                    <span class="info-label">Fecha:</span>
+                    {{ mantenimiento.fecha.strftime('%d/%m/%Y') if mantenimiento.fecha else 'N/A' }}
+                </div>
+<div class="info-item">
+    <span class="info-label">Hora:</span>
+    {% if mantenimiento.hora %}
+        {% if mantenimiento.hora.__class__.__name__ == 'timedelta' %}
+            {{ "%02d:%02d" % (mantenimiento.hora.seconds // 3600, (mantenimiento.hora.seconds // 60) % 60) }}
+        {% else %}
+            {{ mantenimiento.hora.strftime('%H:%M') }}
+        {% endif %}
+    {% else %}
+        N/A
+    {% endif %}
+</div>
+                <div class="info-item">
+                    <span class="info-label">Estado:</span>
+                    <span class="badge badge-{{ mantenimiento.estado }}">
+                        {{ mantenimiento.estado or 'N/A' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="grid-2col">
+            <div>
+                <div class="info-item">
+                    <span class="info-label">Tipo:</span>
+                    <span class="badge badge-{{ mantenimiento.tipo }}">
+                        {{ mantenimiento.tipo or 'N/A' }}
+                    </span>
+                </div>
+            </div>
+            <div>
+                {% if cronograma_info %}
+                <div class="info-item">
+                    <span class="info-label">Programado:</span>
+                    {{ cronograma_info.tipo }}
+                    {% if cronograma_info.subcategoria %} - {{ cronograma_info.subcategoria }}{% endif %}
+                    {% if cronograma_info.frecuencia %} (cada {{ cronograma_info.frecuencia }} días){% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Descripción del Trabajo -->
+    <div class="section">
+        <h2>DESCRIPCIÓN DEL TRABAJO</h2>
+        <div class="descripcion-box">
+            {{ mantenimiento.descripcion or 'No hay descripción disponible' }}
+        </div>
+    </div>
+
+    <!-- Gráficas 
+    {% if grafica_estadisticas or grafica_tiempos %}
+    <div class="section">
+        <h2>ESTADÍSTICAS</h2>
+        <div class="grid-2col">
+            {% if grafica_estadisticas %}
+            <div class="grafica">
+                <div class="grafica-title">Distribución por Tipo</div>
+                <img src="data:image/png;base64,{{ grafica_estadisticas }}" alt="Gráfica de Estadísticas">
+            </div>
+            {% endif %}
+            
+            {% if grafica_tiempos %}
+            <div class="grafica">
+                <div class="grafica-title">Línea de Tiempo</div>
+                <img src="data:image/png;base64,{{ grafica_tiempos }}" alt="Gráfica de Tiempos">
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}-->
+
+    <!-- Repuestos Utilizados -->
+    <div class="section">
+        <h2>REPUESTOS UTILIZADOS</h2>
+        {% if repuestos %}
+        <table class="repuestos-table">
+            <thead>
+                <tr>
+                    <th>Nombre del Repuesto</th>
+                    <th style="width: 80px;">Cantidad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for repuesto in repuestos %}
+                <tr>
+                    <td>{{ repuesto.nombre }}</td>
+                    <td style="text-align: center;">{{ repuesto.cantidad or 1 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: #666; font-style: italic;">
+            No se registraron repuestos para este mantenimiento
+        </p>
+        {% endif %}
+    </div>
+
+    <!-- Fotos del Mantenimiento -->
+    {% if fotos %}
+    <div class="section">
+        <h2>REGISTRO FOTOGRÁFICO</h2>
+        <div class="fotos-grid">
+            {% for foto in fotos %}
+            <div class="foto-item">
+                <img src="{{ url_for('static', filename='uploads/' + foto.ruta_archivo, _external=True) }}" 
+                     alt="Foto mantenimiento {{ loop.index }}">
+                <div class="foto-tipo">{{ foto.tipo or 'General' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Información Adicional 
+    <div class="section">
+        <h2>INFORMACIÓN ADICIONAL</h2>
+        <div style="display: table; width: 100%;">
+            <div style="display: table-cell; width: 33%;">
+                <div class="info-item">
+                    <span class="info-label">ID Mantenimiento:</span>
+                    #{{ mantenimiento.id }}
+                </div>
+            </div>
+            <div style="display: table-cell; width: 33%;">
+                <div class="info-item">
+                    <span class="info-label">ID Equipo:</span>
+                    #{{ mantenimiento.equipo_id }}
+                </div>
+            </div>
+            <div style="display: table-cell; width: 33%;">
+                <div class="info-item">
+                    <span class="info-label">ID Cronograma:</span>
+                    {% if mantenimiento.cronograma_id %}
+                        #{{ mantenimiento.cronograma_id }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div> -->
+
+    <div class="footer">
+        <p>Documento generado automáticamente por el Sistema de Gestión de Mantenimiento</p>
+        <p>Este es un documento oficial - Mantener en archivo</p>
+    </div>
+</body>
+</html>

@@ -1,0 +1,433 @@
+{% extends "base.html" %}
+
+{% block title %}Reportar Mantenimiento - Sistema de Mantenimiento{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>Reportar Mantenimiento</h1>
+    <p>Registra una nueva intervención de mantenimiento</p>
+</div>
+
+<div class="reportar-container">
+    <form id="formReportar" method="POST" enctype="multipart/form-data" class="reportar-form">
+        <!-- Información básica -->
+        <div class="form-section">
+            <h3>Información Básica</h3>
+            
+            <div class="form-group">
+                <label for="equipo_id">Equipo *</label>
+                <select id="equipo_id" name="equipo_id" required>
+                    <option value="">Seleccione un equipo</option>
+                    {% for equipo in equipos %}
+                    <option value="{{ equipo.id }}">{{ equipo.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="fecha">Fecha *</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="tipo">Tipo de Mantenimiento *</label>
+                <select id="tipo" name="tipo" required>
+                    <option value="">Seleccione el tipo</option>
+                    <option value="preventivo">Preventivo</option>
+                    <option value="correctivo">Correctivo</option>
+                    <option value="predictivo">Predictivo</option>
+                </select>
+            </div>
+
+            <!-- Campo para seleccionar cronograma (solo para preventivo) -->
+            <div class="form-group" id="cronograma_group" style="display: none;">
+                <label for="cronograma_id">Seleccionar del Cronograma</label>
+<select id="cronograma_id" name="cronograma_id">
+    <option value="">-- Seleccione un cronograma --</option>
+    {% for cronograma in cronogramas %}
+    <option value="{{ cronograma.id }}" 
+            data-equipo="{{ cronograma.equipo_id }}"
+            {% if cronograma_seleccionado and cronograma.id == cronograma_seleccionado.id %}selected{% endif %}>
+        {{ cronograma.equipo_nombre }} - {{ cronograma.tipo }} 
+        {% if cronograma.subcategoria %}- {{ cronograma.subcategoria }}{% endif %}
+        (Próximo: {{ cronograma.proximo_mtto.strftime('%d/%m/%Y') if cronograma.proximo_mtto else 'Sin fecha' }})
+    </option>
+    {% endfor %}
+</select>
+                <small class="form-text">Solo se muestran los próximos 5 mantenimientos programados para este equipo</small>
+            </div>
+        </div>
+
+        <!-- Descripción -->
+        <div class="form-section">
+            <h3>Descripción del Trabajo</h3>
+            
+            <div class="form-group">
+                <label for="descripcion">Descripción Detallada *</label>
+                <textarea id="descripcion" name="descripcion" rows="5" 
+                          placeholder="Describa el trabajo realizado, problemas encontrados, soluciones aplicadas..." 
+                          required></textarea>
+            </div>
+        </div>
+
+        <!-- Fotos -->
+        <div class="form-section">
+            <h3>Evidencia Fotográfica</h3>
+            
+            <div class="fotos-section">
+                <div class="foto-group">
+                    <label>Fotos "Antes"</label>
+                    <div class="foto-upload-area" id="uploadAreaAntes">
+                        <input type="file" id="fotos_antes" name="fotos_antes" 
+                               multiple accept="image/*" capture="environment"
+                               style="display: none;" 
+                               onchange="previewFotos(this, 'previewAntes', 'tamañoInfoAntes')">
+                        <div class="upload-placeholder" onclick="document.getElementById('fotos_antes').click()">
+                            <span class="upload-icon">📷</span>
+                            <p>Tomar o seleccionar fotos</p>
+                            <small>Máx. 5 fotos - Usa la cámara para mejores resultados</small>
+                        </div>
+                    </div>
+                    <div class="fotos-preview" id="previewAntes"></div>
+                    <div class="tamaño-info">
+                        <small id="tamañoInfoAntes">0 archivos - 0 MB</small>
+                    </div>
+                </div>
+                
+                <div class="foto-group">
+                    <label>Fotos "Después"</label>
+                    <div class="foto-upload-area" id="uploadAreaDespues">
+                        <input type="file" id="fotos_despues" name="fotos_despues" 
+                               multiple accept="image/*" capture="environment"
+                               style="display: none;"
+                               onchange="previewFotos(this, 'previewDespues', 'tamañoInfoDespues')">
+                        <div class="upload-placeholder" onclick="document.getElementById('fotos_despues').click()">
+                            <span class="upload-icon">📷</span>
+                            <p>Tomar o seleccionar fotos</p>
+                            <small>Máx. 5 fotos - Usa la cámara para mejores resultados</small>
+                        </div>
+                    </div>
+                    <div class="fotos-preview" id="previewDespues"></div>
+                    <div class="tamaño-info">
+                        <small id="tamañoInfoDespues">0 archivos - 0 MB</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="form-actions">
+            <button type="button" class="btn btn-secondary" onclick="window.history.back()">
+                Cancelar
+            </button>
+            <button type="submit" class="btn btn-primary">
+                📋 Guardar Reporte
+            </button>
+        </div>
+    </form>
+</div>
+
+
+<script>
+// Arrays globales para almacenar las fotos seleccionadas
+let fotosAntesSeleccionadas = [];
+let fotosDespuesSeleccionadas = [];
+
+
+
+// Establecer fecha actual por defecto y configurar cronogramas
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha').value = today;
+    actualizarInfoTamaño();
+
+    const tipoSelect = document.getElementById('tipo');
+    const equipoSelect = document.getElementById('equipo_id');
+    const cronogramaGroup = document.getElementById('cronograma_group');
+    const cronogramaSelect = document.getElementById('cronograma_id');
+    
+    // Guardar todas las opciones originales al cargar la página
+    const opcionesOriginales = Array.from(cronogramaSelect.querySelectorAll('option[data-equipo]'))
+        .map(option => option.cloneNode(true));
+
+    // Función para filtrar cronogramas por equipo seleccionado
+    function filtrarCronogramasPorEquipo() {
+        const equipoId = equipoSelect.value;
+        
+        // Limpiar opciones actuales (excepto la primera)
+        while (cronogramaSelect.options.length > 1) {
+            cronogramaSelect.remove(1);
+        }
+        
+        // Si hay un equipo seleccionado y es preventivo, filtrar cronogramas
+        if (equipoId && tipoSelect.value === 'preventivo') {
+            // Buscar en las opciones originales, no en el DOM actual
+            const cronogramasDelEquipo = opcionesOriginales.filter(option => 
+                option.getAttribute('data-equipo') === equipoId
+            );
+            
+            // Agregar los cronogramas filtrados al select
+            cronogramasDelEquipo.forEach(option => {
+                cronogramaSelect.appendChild(option.cloneNode(true));
+            });
+        }
+    }
+
+    // Función para actualizar visibilidad
+    function toggleCronogramaField() {
+        if (tipoSelect.value === 'preventivo') {
+            cronogramaGroup.style.display = 'block';
+            filtrarCronogramasPorEquipo();
+        } else {
+            cronogramaGroup.style.display = 'none';
+            cronogramaSelect.value = '';
+        }
+    }
+
+    // Event listeners
+    tipoSelect.addEventListener('change', toggleCronogramaField);
+    equipoSelect.addEventListener('change', function() {
+        if (tipoSelect.value === 'preventivo') {
+            filtrarCronogramasPorEquipo();
+        }
+    });
+
+    // Si hay un cronograma preseleccionado (viene por URL), configurar el formulario
+    const urlParams = new URLSearchParams(window.location.search);
+    const cronogramaId = urlParams.get('cronograma_id');
+    if (cronogramaId) {
+        const option = cronogramaSelect.querySelector(`option[value="${cronogramaId}"]`);
+        if (option) {
+            cronogramaSelect.value = cronogramaId;
+            const equipoId = option.getAttribute('data-equipo');
+            const tipo = option.getAttribute('data-tipo');
+            document.getElementById('equipo_id').value = equipoId;
+            document.getElementById('tipo').value = tipo.toLowerCase();
+            toggleCronogramaField();
+            
+            setTimeout(() => {
+                cronogramaSelect.value = cronogramaId;
+            }, 100);
+        }
+    }
+
+    // Inicializar
+    toggleCronogramaField();
+});
+
+// Previsualización de fotos - CORREGIDA PARA ACEPTAR MÚLTIPLES FOTOS
+function previewFotos(input, previewId, tamañoInfoId) {
+    if (!validarTamañoArchivos()) {
+        input.value = ''; // Limpiar el input
+        return;
+    }
+    
+    const preview = document.getElementById(previewId);
+    
+    if (input.files && input.files.length > 0) {
+        const files = Array.from(input.files);
+        
+        // Determinar a qué array agregar las fotos
+        let arrayFotos;
+        if (previewId === 'previewAntes') {
+            arrayFotos = fotosAntesSeleccionadas;
+        } else {
+            arrayFotos = fotosDespuesSeleccionadas;
+        }
+        
+        // Agregar nuevas fotos hasta alcanzar el máximo de 5
+        for (let i = 0; i < files.length && arrayFotos.length < 5; i++) {
+            arrayFotos.push(files[i]);
+        }
+        
+        // Si se intentaron agregar más de 5 fotos, mostrar alerta
+        if (files.length > 5 || arrayFotos.length > 5) {
+            alert(`Máximo 5 fotos permitidas. Se han agregado ${Math.min(files.length, 5 - (arrayFotos.length - files.length))} fotos.`);
+        }
+        
+        // Limitar a 5 fotos
+        if (arrayFotos.length > 5) {
+            arrayFotos = arrayFotos.slice(0, 5);
+            if (previewId === 'previewAntes') {
+                fotosAntesSeleccionadas = arrayFotos;
+            } else {
+                fotosDespuesSeleccionadas = arrayFotos;
+            }
+        }
+        
+        // Actualizar la previsualización
+        actualizarPrevisualizacion(previewId, arrayFotos);
+        actualizarInputFile(input, arrayFotos);
+        actualizarInfoTamaño();
+    }
+}
+
+// Función para actualizar la previsualización
+function actualizarPrevisualizacion(previewId, archivos) {
+    const preview = document.getElementById(previewId);
+    preview.innerHTML = '';
+    
+    archivos.forEach((file, index) => {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const previewItem = document.createElement('div');
+            previewItem.className = 'foto-preview-item';
+            
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.className = 'foto-preview-img';
+            img.title = `${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'foto-remove';
+            removeBtn.innerHTML = '×';
+            removeBtn.onclick = function() {
+                // Eliminar la foto del array correspondiente
+                if (previewId === 'previewAntes') {
+                    fotosAntesSeleccionadas.splice(index, 1);
+                    actualizarInputFile(document.getElementById('fotos_antes'), fotosAntesSeleccionadas);
+                } else {
+                    fotosDespuesSeleccionadas.splice(index, 1);
+                    actualizarInputFile(document.getElementById('fotos_despues'), fotosDespuesSeleccionadas);
+                }
+                
+                // Volver a generar la previsualización
+                actualizarPrevisualizacion(previewId, previewId === 'previewAntes' ? fotosAntesSeleccionadas : fotosDespuesSeleccionadas);
+                actualizarInfoTamaño();
+            };
+            
+            previewItem.appendChild(img);
+            previewItem.appendChild(removeBtn);
+            preview.appendChild(previewItem);
+        };
+        
+        reader.readAsDataURL(file);
+    });
+}
+
+// Función para actualizar el input file con los archivos seleccionados
+function actualizarInputFile(input, archivos) {
+    const dt = new DataTransfer();
+    archivos.forEach(archivo => dt.items.add(archivo));
+    input.files = dt.files;
+}
+
+// Validación de tamaño de archivos
+function validarTamañoArchivos() {
+    const maxSize = 5 * 1024 * 1024; // 5MB por archivo (reducido de 50MB)
+    const maxTotalSize = 20 * 1024 * 1024; // 20MB total (reducido de 100MB)
+    let totalSize = 0;
+    
+    // Combinar todas las fotos seleccionadas
+    const todasLasFotos = [...fotosAntesSeleccionadas, ...fotosDespuesSeleccionadas];
+    
+    // Validar archivos individuales
+    for (let file of todasLasFotos) {
+        if (file.size > maxSize) {
+            alert(`El archivo "${file.name}" es demasiado grande (${(file.size / 1024 / 1024).toFixed(1)} MB). El máximo permitido es 5 MB por archivo.`);
+            return false;
+        }
+        totalSize += file.size;
+    }
+    
+    // Validar tamaño total
+    if (totalSize > maxTotalSize) {
+        alert(`El tamaño total de las imágenes (${(totalSize / 1024 / 1024).toFixed(1)} MB) supera el límite de 20 MB. Por favor, seleccione menos imágenes o comprímalas.`);
+        return false;
+    }
+    
+    return true;
+}
+
+// Mostrar información de tamaño
+function actualizarInfoTamaño() {
+    let totalSizeAntes = 0;
+    let totalSizeDespues = 0;
+    
+    // Calcular tamaño para "antes"
+    fotosAntesSeleccionadas.forEach(file => {
+        totalSizeAntes += file.size;
+    });
+    
+    // Calcular tamaño para "después"
+    fotosDespuesSeleccionadas.forEach(file => {
+        totalSizeDespues += file.size;
+    });
+    
+    // Actualizar contadores individuales
+    const infoAntes = document.getElementById('tamañoInfoAntes');
+    const infoDespues = document.getElementById('tamañoInfoDespues');
+    
+    if (infoAntes) {
+        infoAntes.textContent = `${fotosAntesSeleccionadas.length} archivos - ${(totalSizeAntes / 1024 / 1024).toFixed(1)} MB`;
+        actualizarColorTamaño(infoAntes, totalSizeAntes);
+    }
+    
+    if (infoDespues) {
+        infoDespues.textContent = `${fotosDespuesSeleccionadas.length} archivos - ${(totalSizeDespues / 1024 / 1024).toFixed(1)} MB`;
+        actualizarColorTamaño(infoDespues, totalSizeDespues);
+    }
+}
+
+function actualizarColorTamaño(element, size) {
+    if (size > 15 * 1024 * 1024) {
+        element.style.color = 'red';
+    } else if (size > 10 * 1024 * 1024) {
+        element.style.color = 'orange';
+    } else {
+        element.style.color = 'green';
+    }
+}
+
+// Validación del formulario
+document.getElementById('formReportar').addEventListener('submit', function(e) {
+    const equipo = document.getElementById('equipo_id').value;
+    const fecha = document.getElementById('fecha').value;
+    const tipo = document.getElementById('tipo').value;
+    const descripcion = document.getElementById('descripcion').value;
+    
+    if (!equipo || !fecha || !tipo || !descripcion) {
+        e.preventDefault();
+        alert('Por favor complete todos los campos obligatorios (*)');
+        return false;
+    }
+    
+    // Validar tamaño antes de enviar
+    if (!validarTamañoArchivos()) {
+        e.preventDefault();
+        return false;
+    }
+    
+    // Mostrar mensaje de confirmación
+    if (!confirm('¿Está seguro de que desea guardar este reporte de mantenimiento?')) {
+        e.preventDefault();
+        return false;
+    }
+    
+    return true;
+});
+
+// Mejorar experiencia móvil para inputs de fecha
+if (/Mobi|Android/i.test(navigator.userAgent)) {
+    document.getElementById('fecha').addEventListener('focus', function() {
+        this.type = 'date';
+    });
+}
+
+// Mostrar u ocultar el campo de cronograma según el tipo de mantenimiento
+document.getElementById('tipo').addEventListener('change', toggleCronogramaField);
+
+function toggleCronogramaField() {
+    const tipoSelect = document.getElementById('tipo');
+    const cronogramaGroup = document.getElementById('cronograma_group');
+    if (tipoSelect.value === 'preventivo') {
+        cronogramaGroup.style.display = 'block';
+    } else {
+        cronogramaGroup.style.display = 'none';
+        // Limpiar la selección del cronograma si no es preventivo
+        document.getElementById('cronograma_id').value = '';
+    }
+}
+</script>
+{% endblock %}
