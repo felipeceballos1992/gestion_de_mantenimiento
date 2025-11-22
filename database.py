@@ -1,10 +1,11 @@
-import mysql.connector
-from mysql.connector import Error
+import MySQLdb
+from MySQLdb import Error
 import os
+from contextlib import contextmanager
 
 class Database:
     def __init__(self):
-        # Configuración para PlanetScale - solo variables de entorno
+        # Configuración para PlanetScale
         self.host = os.getenv('DATABASE_HOST')
         self.database = os.getenv('DATABASE')  
         self.user = os.getenv('DATABASE_USERNAME')
@@ -12,36 +13,65 @@ class Database:
     
     def get_connection(self):
         try:
-            connection = mysql.connector.connect(
+            connection = MySQLdb.connect(
                 host=self.host,
-                database=self.database,
                 user=self.user,
-                password=self.password,
-                ssl_ca='/etc/ssl/certs/ca-certificates.crt',
-                ssl_verify_cert=True
+                passwd=self.password,
+                db=self.database,
+                autocommit=True,
+                ssl_mode="VERIFY_IDENTITY",
+                ssl={"ca": "C:\ssl\cacert.pem"}
             )
             return connection
         except Error as e:
             print(f"Error conectando a PlanetScale: {e}")
             return None
     
-    def execute_query(self, query, params=None):
+    @contextmanager
+    def get_cursor(self):
+        """Context manager para manejar conexiones y cursores automáticamente"""
         connection = self.get_connection()
         if connection:
             try:
-                cursor = connection.cursor(dictionary=True)
+                cursor = connection.cursor(MySQLdb.cursors.DictCursor)
+                yield cursor
+            except Error as e:
+                print(f"Error con cursor: {e}")
+                raise
+            finally:
+                cursor.close()
+                connection.close()
+        else:
+            yield None
+    
+    def execute_query(self, query, params=None):
+        with self.get_cursor() as cursor:
+            if cursor:
                 cursor.execute(query, params or ())
                 
                 if query.strip().upper().startswith('SELECT'):
-                    result = cursor.fetchall()
+                    return cursor.fetchall()
                 else:
-                    connection.commit()
-                    result = cursor.lastrowid
-                
-                cursor.close()
-                connection.close()
-                return result
-            except Error as e:
-                print(f"Error ejecutando query: {e}")
-                return None
+                    return cursor.lastrowid
         return None
+    
+    def execute_many(self, query, params_list):
+        """Para inserciones múltiples más eficientes"""
+        with self.get_cursor() as cursor:
+            if cursor:
+                cursor.executemany(query, params_list)
+                return cursor.rowcount
+        return None
+    
+    def test_connection(self):
+        """Test de conexión a la base de datos"""
+        try:
+            with self.get_cursor() as cursor:
+                if cursor:
+                    cursor.execute("SELECT 1 as test")
+                    result = cursor.fetchone()
+                    return result is not None
+            return False
+        except Error as e:
+            print(f"Error testeando conexión: {e}")
+            return False

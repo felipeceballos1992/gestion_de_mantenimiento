@@ -105,7 +105,20 @@ def guardar_foto(file, mantenimiento_id, tipo, index):
     return None
 
 # ==================== RUTAS DE AUTENTICACIÓN ====================
+# Configuración de base de datos optimizada
+@app.before_first_request
+def initialize_database():
+    """Test de conexión al iniciar la aplicación"""
+    if db.test_connection():
+        print("✅ Conexión a PlanetScale establecida")
+    else:
+        print("❌ Error conectando a PlanetScale")
 
+# Manejo de errores de BD
+@app.errorhandler(MySQLdb.Error)
+def handle_db_error(error):
+    flash('Error de base de datos. Por favor intenta nuevamente.', 'error')
+    return redirect(url_for('dashboard'))
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Maneja el proceso de login"""
