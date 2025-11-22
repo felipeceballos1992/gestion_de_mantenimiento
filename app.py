@@ -12,7 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import io
 import base64
-import pdfkit
+#import pdfkit
 import os
 
 app = Flask(__name__)
