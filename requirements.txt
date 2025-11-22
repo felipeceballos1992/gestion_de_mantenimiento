@@ -4,4 +4,5 @@ Pillow==10.0.0
 python-dotenv==1.0.0
 gunicorn==21.2.0
 matplotlib==3.7.2
+numpy==1.24.3
 cairocffi==1.6.1
