@@ -6,7 +6,7 @@ from database import Database
 from PIL import Image
 from datetime import timedelta
 
-
+import MySQLdb
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
