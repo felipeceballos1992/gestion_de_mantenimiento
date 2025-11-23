@@ -3,10 +3,20 @@ import os
 
 class Database:
     def __init__(self):
+        # SOLO variables de entorno - SIN contraseñas en el código
         self.host = os.getenv('DATABASE_HOST')
         self.database = os.getenv('DATABASE')  
         self.user = os.getenv('DATABASE_USERNAME')
         self.password = os.getenv('DATABASE_PASSWORD')
+        
+        # Validar que todas las variables estén presentes
+        if not all([self.host, self.database, self.user, self.password]):
+            missing = []
+            if not self.host: missing.append('DATABASE_HOST')
+            if not self.database: missing.append('DATABASE')
+            if not self.user: missing.append('DATABASE_USERNAME')
+            if not self.password: missing.append('DATABASE_PASSWORD')
+            raise Exception(f"Missing environment variables: {', '.join(missing)}")
     
     def get_connection(self):
         try:
@@ -23,6 +33,8 @@ class Database:
         except Exception as e:
             print(f"Error conectando a PlanetScale: {e}")
             return None
+    
+    # ... resto del código igual
     
     def execute_query(self, query, params=None):
         connection = self.get_connection()
