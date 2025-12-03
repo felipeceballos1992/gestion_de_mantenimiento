@@ -606,7 +606,7 @@ def generar_pdf_mantenimientos():
                              fecha_generacion=datetime.now().strftime("%d/%m/%Y %H:%M"))
         
         # Configurar pdfkit
-        config = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
+        #config = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
         
         # Opciones para el PDF
         options = {
@@ -620,8 +620,10 @@ def generar_pdf_mantenimientos():
         }
         
         # Generar PDF
-        pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+        #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+	pdf = HTML(string=html).write_pdf()
         
+
         # Crear respuesta
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
@@ -757,7 +759,7 @@ def generar_pdf_cronograma():
                              hoy=hoy)
         
         # Configurar pdfkit
-        config = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
+        #config = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
         
         # Opciones para el PDF
         options = {
@@ -771,7 +773,8 @@ def generar_pdf_cronograma():
         }
         
         # Generar PDF
-        pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+        #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+        pdf = HTML(string=html).write_pdf()
         
         # Crear respuesta
         response = make_response(pdf)
@@ -1421,7 +1424,7 @@ def generar_pdf_mantenimiento(mantenimiento_id):
 
         # Configuración de PDFKit
         try:
-            config = pdfkit.configuration()
+            #config = pdfkit.configuration()
             options = {
                 'page-size': 'A4',
                 'margin-top': '1.0cm',
@@ -1433,8 +1436,8 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                 'enable-local-file-access': None
             }
             
-            pdf = pdfkit.from_string(html, False, configuration=config, options=options)
-            
+            #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+            pdf = HTML(string=html).write_pdf()
         except Exception as e:
             print(f"Error con PDFKit PATH: {e}")
             # Opción 2: Ruta específica de wkhtmltopdf
@@ -1446,7 +1449,7 @@ def generar_pdf_mantenimiento(mantenimiento_id):
             
             for ruta in posibles_rutas:
                 if os.path.exists(ruta):
-                    config = pdfkit.configuration(wkhtmltopdf=ruta)
+                    #config = pdfkit.configuration(wkhtmltopdf=ruta)
                     options = {
                         'page-size': 'A4',
                         'margin-top': '1.0cm',
@@ -1457,7 +1460,8 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                         'no-outline': None,
                         'enable-local-file-access': None
                     }
-                    pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+                    #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+		    pdf = HTML(string=html).write_pdf()
                     break
             else:
                 raise Exception("No se encontró wkhtmltopdf instalado")
