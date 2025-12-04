@@ -621,8 +621,8 @@ def generar_pdf_mantenimientos():
         }
         
         # Generar PDF
-        #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
-	pdf = HTML(string=html).write_pdf()
+        #pdf = pdfkit.from_string(html, False, configuration=config, options=options
+        pdf = HTML(string=html).write_pdf()
         
 
         # Crear respuesta
@@ -774,7 +774,7 @@ def generar_pdf_cronograma():
         }
         
         # Generar PDF
-        #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
+        #pdf = pdfkit.from_string(html, False, configuration=config, options=options
         pdf = HTML(string=html).write_pdf()
         
         # Crear respuesta
@@ -1462,7 +1462,7 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                         'enable-local-file-access': None
                     }
                     #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
-		    pdf = HTML(string=html).write_pdf()
+           pdf = HTML(string=html).write_pdf()
                     break
             else:
                 raise Exception("No se encontró wkhtmltopdf instalado")
