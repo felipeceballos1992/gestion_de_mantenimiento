@@ -13,19 +13,12 @@ import matplotlib
 matplotlib.use('Agg')
 import io
 import base64
-#import pdfkit
-import os
 
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_mantenimiento_2024'
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
-
-# Configura la ruta a wkhtmltopdf (ajusta según tu sistema)
-# En Windows normalmente es:
-PATH_WKHTMLTOPDF = r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe'
-
 
 # Crear carpeta de uploads si no existe
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -606,24 +599,8 @@ def generar_pdf_mantenimientos():
                              titulo_reporte=titulo_reporte,
                              fecha_generacion=datetime.now().strftime("%d/%m/%Y %H:%M"))
         
-        # Configurar pdfkit
-        #config = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
-        
-        # Opciones para el PDF
-        options = {
-            'page-size': 'A4',
-            'margin-top': '0.5in',
-            'margin-right': '0.5in',
-            'margin-bottom': '0.5in',
-            'margin-left': '0.5in',
-            'encoding': "UTF-8",
-            'no-outline': None
-        }
-        
-        # Generar PDF
-        #pdf = pdfkit.from_string(html, False, configuration=config, options=options
+        # Generar PDF con WeasyPrint
         pdf = HTML(string=html).write_pdf()
-        
 
         # Crear respuesta
         response = make_response(pdf)
@@ -759,22 +736,7 @@ def generar_pdf_cronograma():
                              calendarios_mensuales=calendarios_mensuales,
                              hoy=hoy)
         
-        # Configurar pdfkit
-        #config = pdfkit.configuration(wkhtmltopdf=PATH_WKHTMLTOPDF)
-        
-        # Opciones para el PDF
-        options = {
-            'page-size': 'A4',
-            'margin-top': '0.5in',
-            'margin-right': '0.5in',
-            'margin-bottom': '0.5in',
-            'margin-left': '0.5in',
-            'encoding': "UTF-8",
-            'no-outline': None
-        }
-        
-        # Generar PDF
-        #pdf = pdfkit.from_string(html, False, configuration=config, options=options
+        # Generar PDF con WeasyPrint
         pdf = HTML(string=html).write_pdf()
         
         # Crear respuesta
@@ -1425,7 +1387,6 @@ def generar_pdf_mantenimiento(mantenimiento_id):
 
         # Configuración de PDFKit
         try:
-            #config = pdfkit.configuration()
             options = {
                 'page-size': 'A4',
                 'margin-top': '1.0cm',
@@ -1437,7 +1398,6 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                 'enable-local-file-access': None
             }
             
-            #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
             pdf = HTML(string=html).write_pdf()
         except Exception as e:
             print(f"Error con PDFKit PATH: {e}")
@@ -1450,7 +1410,6 @@ def generar_pdf_mantenimiento(mantenimiento_id):
             
             for ruta in posibles_rutas:
                 if os.path.exists(ruta):
-                    #config = pdfkit.configuration(wkhtmltopdf=ruta)
                     options = {
                         'page-size': 'A4',
                         'margin-top': '1.0cm',
@@ -1461,8 +1420,7 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                         'no-outline': None,
                         'enable-local-file-access': None
                     }
-                    #pdf = pdfkit.from_string(html, False, configuration=config, options=options)
-           pdf = HTML(string=html).write_pdf()
+                    pdf = HTML(string=html).write_pdf()
                     break
             else:
                 raise Exception("No se encontró wkhtmltopdf instalado")
