@@ -1255,154 +1255,178 @@ def api_mantenimiento_detalle(mantenimiento_id):
         print(f"Error en API mantenimiento detalle: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-@app.route('/api/mantenimientos/<int:mantenimiento_id>/detalle', methods=['GET'])
-def api_mantenimiento_detalle_completo(mantenimiento_id):
-    """Devuelve un mantenimiento específico con todos sus detalles, fotos y repuestos"""
+@app.route('/mantenimiento/<int:mantenimiento_id>/pdf')
+def generar_pdf_mantenimiento(mantenimiento_id):
     try:
-        # Consulta principal del mantenimiento
+        # Obtener datos completos del mantenimiento
         mantenimiento = db.execute_query("""
             SELECT m.id, m.equipo_id, m.fecha, m.tipo, m.descripcion, m.estado, 
-                   m.hora, m.cronograma_id, e.nombre as equipo_nombre 
+                   m.hora, m.cronograma_id, e.nombre as equipo_nombre,
+                   e.fabricante, e.ubicacion, e.fecha_compra
             FROM mantenimientos m 
             JOIN equipos e ON m.equipo_id = e.id 
             WHERE m.id = %s
         """, (mantenimiento_id,))
-        
+
         if not mantenimiento:
-            return jsonify({'error': 'Mantenimiento no encontrado'}), 404
-        
+            return "Mantenimiento no encontrado", 404
+
         mantenimiento_data = mantenimiento[0]
-        
+
         # Obtener fotos
-        fotos = []
-        try:
-            fotos = db.execute_query("""
-                SELECT id, ruta_archivo, tipo
-                FROM fotos_mantenimiento
-                WHERE mantenimiento_id = %s
-            """, (mantenimiento_id,)) or []
-        except Exception as e:
-            print(f"Error obteniendo fotos: {e}")
-        
+        fotos = db.execute_query("""
+            SELECT ruta_archivo, tipo
+            FROM fotos_mantenimiento
+            WHERE mantenimiento_id = %s
+        """, (mantenimiento_id,)) or []
+
         # Obtener repuestos
-        repuestos = []
-        try:
-            repuestos = db.execute_query("""
-                SELECT id, nombre, cantidad
-                FROM repuestos
-                WHERE mantenimiento_id = %s
-            """, (mantenimiento_id,)) or []
-        except Exception as e:
-            print(f"Error obteniendo repuestos: {e}")
-        
-        # Obtener información del cronograma si existe
+        repuestos = db.execute_query("""
+            SELECT nombre, cantidad
+            FROM repuestos
+            WHERE mantenimiento_id = %s
+        """, (mantenimiento_id,)) or []
+
+        # Obtener información del cronograma
         cronograma_info = None
         if mantenimiento_data.get('cronograma_id'):
-            try:
-                cronograma = db.execute_query("""
-                    SELECT tipo, subcategoria, frecuencia
-                    FROM cronograma
-                    WHERE id = %s
-                """, (mantenimiento_data['cronograma_id'],))
-                if cronograma:
-                    cronograma_info = cronograma[0]
-            except Exception as e:
-                print(f"Error obteniendo cronograma: {e}")
+            cronograma = db.execute_query("""
+                SELECT tipo, subcategoria, frecuencia
+                FROM cronograma
+                WHERE id = %s
+            """, (mantenimiento_data['cronograma_id'],))
+            if cronograma:
+                cronograma_info = cronograma[0]
+
+        # Generar gráficas
+        grafica_estadisticas = generar_grafica_estadisticas(mantenimiento_data)
+        grafica_tiempos = generar_grafica_tiempos(mantenimiento_data)
+
+        # Convertir fotos a base64 para incrustar directamente en el PDF
+        import os
+        import base64
         
-        return jsonify({
-            'id': mantenimiento_data['id'],
-            'equipo_id': mantenimiento_data['equipo_id'],
-            'equipo_nombre': mantenimiento_data['equipo_nombre'],
-            'fecha': mantenimiento_data['fecha'].strftime('%Y-%m-%d') if mantenimiento_data['fecha'] else None,
-            'hora': str(mantenimiento_data['hora']) if mantenimiento_data['hora'] else None,
-            'tipo': mantenimiento_data['tipo'],
-            'descripcion': mantenimiento_data['descripcion'],
-            'estado': mantenimiento_data['estado'],
-            'cronograma_id': mantenimiento_data['cronograma_id'],
-            'cronograma_info': cronograma_info,
-            'fotos': fotos,
-            'repuestos': repuestos
-        })
+        fotos_para_pdf = []
+        base_path = '/opt/render/project/src/static'
         
-    except Exception as e:
-        print(f"Error en API mantenimiento detalle completo: {e}")
-        return jsonify({'error': 'Error interno del servidor'}), 500
-# Reemplaza la sección de procesamiento de fotos con esto:
-
-fotos_para_pdf = []
-base_path = '/opt/render/project/src/static'
-
-print(f"Base path: {base_path}")
-print(f"Número de fotos encontradas: {len(fotos)}")
-
-for foto in fotos:
-    ruta_archivo = foto['ruta_archivo']
-    print(f"Procesando foto (ruta original): {ruta_archivo}")
-    
-    # Lista de posibles ubicaciones para buscar el archivo
-    posibles_rutas = []
-    
-    # 1. Ruta exacta como está en la BD
-    posibles_rutas.append(os.path.join(base_path, ruta_archivo))
-    
-    # 2. Ruta con 'uploads/' prefijo si no lo tiene
-    if not 'uploads/' in ruta_archivo and not ruta_archivo.startswith('static/'):
-        posibles_rutas.append(os.path.join(base_path, 'uploads', ruta_archivo))
-    
-    # 3. Ruta con solo el nombre del archivo en uploads
-    nombre_archivo = os.path.basename(ruta_archivo)
-    posibles_rutas.append(os.path.join(base_path, 'uploads', nombre_archivo))
-    
-    # 4. Ruta en static directamente
-    posibles_rutas.append(os.path.join(base_path, nombre_archivo))
-    
-    # Buscar el archivo en las rutas posibles
-    ruta_encontrada = None
-    for ruta in posibles_rutas:
-        if os.path.exists(ruta):
-            ruta_encontrada = ruta
-            print(f"Archivo encontrado en: {ruta}")
-            break
-    
-    if ruta_encontrada:
-        try:
-            with open(ruta_encontrada, 'rb') as img_file:
-                img_data = img_file.read()
-                
-                # Determinar tipo MIME
-                if ruta_encontrada.lower().endswith('.png'):
-                    mime_type = 'image/png'
-                elif ruta_encontrada.lower().endswith('.jpg') or ruta_encontrada.lower().endswith('.jpeg'):
-                    mime_type = 'image/jpeg'
-                elif ruta_encontrada.lower().endswith('.gif'):
-                    mime_type = 'image/gif'
-                else:
-                    mime_type = 'image/jpeg'
-                
-                img_base64 = base64.b64encode(img_data).decode('utf-8')
-                data_url = f"data:{mime_type};base64,{img_base64}"
-                
+        for foto in fotos:
+            ruta_archivo = foto['ruta_archivo']
+            
+            # Lista de posibles ubicaciones para buscar el archivo
+            posibles_rutas = []
+            
+            # 1. Ruta exacta como está en la BD
+            posibles_rutas.append(os.path.join(base_path, ruta_archivo))
+            
+            # 2. Ruta con 'uploads/' prefijo si no lo tiene
+            if not 'uploads/' in ruta_archivo and not ruta_archivo.startswith('static/'):
+                posibles_rutas.append(os.path.join(base_path, 'uploads', ruta_archivo))
+            
+            # 3. Ruta con solo el nombre del archivo en uploads
+            nombre_archivo = os.path.basename(ruta_archivo)
+            posibles_rutas.append(os.path.join(base_path, 'uploads', nombre_archivo))
+            
+            # 4. Ruta en static directamente
+            posibles_rutas.append(os.path.join(base_path, nombre_archivo))
+            
+            # Buscar el archivo en las rutas posibles
+            ruta_encontrada = None
+            for ruta in posibles_rutas:
+                if os.path.exists(ruta):
+                    ruta_encontrada = ruta
+                    break
+            
+            if ruta_encontrada:
+                try:
+                    with open(ruta_encontrada, 'rb') as img_file:
+                        img_data = img_file.read()
+                        
+                        # Determinar tipo MIME
+                        if ruta_encontrada.lower().endswith('.png'):
+                            mime_type = 'image/png'
+                        elif ruta_encontrada.lower().endswith('.jpg') or ruta_encontrada.lower().endswith('.jpeg'):
+                            mime_type = 'image/jpeg'
+                        elif ruta_encontrada.lower().endswith('.gif'):
+                            mime_type = 'image/gif'
+                        else:
+                            mime_type = 'image/jpeg'
+                        
+                        img_base64 = base64.b64encode(img_data).decode('utf-8')
+                        data_url = f"data:{mime_type};base64,{img_base64}"
+                        
+                        fotos_para_pdf.append({
+                            'url': data_url,
+                            'tipo': foto['tipo'],
+                            'ruta_archivo': ruta_archivo
+                        })
+                except Exception:
+                    fotos_para_pdf.append({
+                        'url': '',
+                        'tipo': foto['tipo'],
+                        'ruta_archivo': ruta_archivo,
+                        'error': True
+                    })
+            else:
                 fotos_para_pdf.append({
-                    'url': data_url,
+                    'url': '',
                     'tipo': foto['tipo'],
-                    'ruta_archivo': ruta_archivo
+                    'ruta_archivo': ruta_archivo,
+                    'error': True
                 })
-        except Exception as e:
-            print(f"Error leyendo imagen {ruta_encontrada}: {e}")
-            fotos_para_pdf.append({
-                'url': '',
-                'tipo': foto['tipo'],
-                'ruta_archivo': ruta_archivo,
-                'error': True
-            })
-    else:
-        print(f"Archivo no encontrado en ninguna ruta posible. Rutas intentadas: {posibles_rutas}")
-        fotos_para_pdf.append({
-            'url': '',
-            'tipo': foto['tipo'],
-            'ruta_archivo': ruta_archivo,
-            'error': True
-        })
+
+        # Renderizar template HTML
+        html = render_template('reporte_pdf.html',
+                            mantenimiento=mantenimiento_data,
+                            fotos=fotos_para_pdf,
+                            repuestos=repuestos,
+                            cronograma_info=cronograma_info,
+                            grafica_estadisticas=grafica_estadisticas,
+                            grafica_tiempos=grafica_tiempos,
+                            fecha_reporte=datetime.now().strftime('%d/%m/%Y %H:%M'))
+
+        # Configuración de PDFKit
+        try:
+            options = {
+                'page-size': 'A4',
+                'margin-top': '1.0cm',
+                'margin-right': '1.0cm',
+                'margin-bottom': '1.0cm',
+                'margin-left': '1.0cm',
+                'encoding': "UTF-8",
+                'no-outline': None,
+                'enable-local-file-access': None,
+                'enable-external-links': None,
+                'load-error-handling': 'ignore',
+                'load-media-error-handling': 'ignore',
+                'disable-smart-shrinking': None,
+                'image-quality': 100
+            }
+            
+            pdf = HTML(string=html).write_pdf()
+        except Exception:
+            # Opción alternativa si falla
+            try:
+                options = {
+                    'page-size': 'A4',
+                    'margin-top': '1.0cm',
+                    'margin-right': '1.0cm',
+                    'margin-bottom': '1.0cm',
+                    'margin-left': '1.0cm',
+                    'encoding': "UTF-8",
+                    'enable-local-file-access': ''
+                }
+                pdf = HTML(string=html).write_pdf()
+            except Exception as e2:
+                raise Exception(f"No se pudo generar el PDF: {e2}")
+
+        # Crear respuesta
+        response = make_response(pdf)
+        response.headers['Content-Type'] = 'application/pdf'
+        response.headers['Content-Disposition'] = f'inline; filename=reporte_mantenimiento_{mantenimiento_id}.pdf'
+        return response
+
+    except Exception as e:
+        return f"Error al generar el PDF: {str(e)}", 500
 
 def generar_grafica_estadisticas(mantenimiento):
     """Genera gráfica de estadísticas del mantenimiento"""
