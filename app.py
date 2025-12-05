@@ -1327,7 +1327,6 @@ def api_mantenimiento_detalle_completo(mantenimiento_id):
     except Exception as e:
         print(f"Error en API mantenimiento detalle completo: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
-
 @app.route('/mantenimiento/<int:mantenimiento_id>/pdf')
 def generar_pdf_mantenimiento(mantenimiento_id):
     try:
@@ -1375,36 +1374,65 @@ def generar_pdf_mantenimiento(mantenimiento_id):
         grafica_estadisticas = generar_grafica_estadisticas(mantenimiento_data)
         grafica_tiempos = generar_grafica_tiempos(mantenimiento_data)
 
-        # Convertir fotos a URLs absolutas para wkhtmltopdf
+        # Convertir fotos a base64 para incrustar directamente en el PDF
         import os
-        from urllib.parse import urljoin
-        base_url = request.host_url.rstrip('/')
+        import base64
         
         fotos_para_pdf = []
+        base_path = '/opt/render/project/src/static'
+        
         for foto in fotos:
             ruta_archivo = foto['ruta_archivo']
-            # Crear URL absoluta para el PDF
+            # Limpiar la ruta
             if ruta_archivo.startswith('/'):
-                url_foto = urljoin(base_url, ruta_archivo[1:])
-            else:
-                url_foto = urljoin(base_url + '/static/', ruta_archivo)
-            fotos_para_pdf.append({
-                'url': url_foto,
-                'tipo': foto['tipo'],
-                'ruta_archivo': foto['ruta_archivo']
-            })
+                ruta_archivo = ruta_archivo[1:]
+            
+            ruta_completa = os.path.join(base_path, ruta_archivo)
+            
+            try:
+                # Leer la imagen y convertir a base64
+                with open(ruta_completa, 'rb') as img_file:
+                    img_data = img_file.read()
+                    
+                    # Determinar tipo MIME
+                    if ruta_archivo.lower().endswith('.png'):
+                        mime_type = 'image/png'
+                    elif ruta_archivo.lower().endswith('.jpg') or ruta_archivo.lower().endswith('.jpeg'):
+                        mime_type = 'image/jpeg'
+                    elif ruta_archivo.lower().endswith('.gif'):
+                        mime_type = 'image/gif'
+                    else:
+                        mime_type = 'image/jpeg'  # default
+                    
+                    img_base64 = base64.b64encode(img_data).decode('utf-8')
+                    data_url = f"data:{mime_type};base64,{img_base64}"
+                    
+                    fotos_para_pdf.append({
+                        'url': data_url,  # Usar base64 en lugar de URL
+                        'tipo': foto['tipo'],
+                        'ruta_archivo': foto['ruta_archivo']
+                    })
+            except Exception as e:
+                print(f"Error procesando imagen {ruta_completa}: {e}")
+                # Si falla, usar placeholder
+                fotos_para_pdf.append({
+                    'url': '',  # Dejar vacío si no se puede cargar
+                    'tipo': foto['tipo'],
+                    'ruta_archivo': foto['ruta_archivo'],
+                    'error': True
+                })
 
         # Renderizar template HTML
         html = render_template('reporte_pdf.html',
                             mantenimiento=mantenimiento_data,
-                            fotos=fotos_para_pdf,  # Usar las fotos con URLs
+                            fotos=fotos_para_pdf,  # Usar las fotos con base64
                             repuestos=repuestos,
                             cronograma_info=cronograma_info,
                             grafica_estadisticas=grafica_estadisticas,
                             grafica_tiempos=grafica_tiempos,
                             fecha_reporte=datetime.now().strftime('%d/%m/%Y %H:%M'))
 
-        # Configuración de PDFKit
+        # Configuración de PDFKit con mejor manejo de imágenes
         try:
             options = {
                 'page-size': 'A4',
@@ -1417,7 +1445,9 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                 'enable-local-file-access': None,
                 'enable-external-links': None,
                 'load-error-handling': 'ignore',
-                'load-media-error-handling': 'ignore'
+                'load-media-error-handling': 'ignore',
+                'disable-smart-shrinking': None,
+                'image-quality': 100
             }
             
             pdf = HTML(string=html).write_pdf()
