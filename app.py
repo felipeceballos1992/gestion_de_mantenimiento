@@ -17,7 +17,15 @@ import base64
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_mantenimiento_2024'
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
+
+# IMPORTANTE: Usar la ruta del disco persistente en Render
+if os.path.exists('/opt/render/project/src/static'):
+    # En Render con disco persistente
+    app.config['UPLOAD_FOLDER'] = '/opt/render/project/src/static/uploads'
+else:
+    # Localmente
+    app.config['UPLOAD_FOLDER'] = os.path.join(BASE_DIR, 'static', 'uploads')
+
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 
 # Crear carpeta de uploads si no existe
@@ -25,7 +33,7 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 db = Database()
 
-#Funcion para comprimir imágenes
+# Funcion para comprimir imágenes
 
 def comprimir_imagen(imagen_file, calidad=80, ancho_max=1600):
     """
@@ -101,12 +109,12 @@ def guardar_foto(file, mantenimiento_id, tipo, index):
 # ==================== RUTAS DE AUTENTICACIÓN ====================
 # Configuración de base de datos optimizada
 
-
 # Manejo de errores de BD
 @app.errorhandler(MySQLdb.Error)
 def handle_db_error(error):
     flash('Error de base de datos. Por favor intenta nuevamente.', 'error')
     return redirect(url_for('dashboard'))
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Maneja el proceso de login"""
@@ -132,7 +140,6 @@ def login():
             session['rol'] = user[0]['rol']
             session['nombre'] = user[0]['nombre']
             session['autenticado'] = True
-            
             
             flash(f'Bienvenido {user[0]["nombre"]}', 'success')
             return redirect(url_for('dashboard'))
@@ -160,8 +167,6 @@ def require_login():
         return redirect(url_for('login'))
 
 # ==================== RUTAS PRINCIPALES ====================
-
-from datetime import date
 
 @app.route('/')
 def dashboard():
@@ -218,7 +223,7 @@ def dashboard():
                          mtto_mes=mtto_mes[0]['total'] if mtto_mes else 0,
                          pendientes=pendientes[0]['total'] if pendientes else 0,
                          proximos=proximos[0]['total'] if proximos else 0,
-                         hoy=date.today())  # <-- Agregar esta línea
+                         hoy=date.today())
 
 @app.route('/equipos')
 def ver_equipos():
@@ -438,7 +443,6 @@ def api_equipo_detalle_completo(equipo_id):
         print(f"Error en API equipo detalle: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
-
 @app.route('/mantenimientos')
 def ver_mantenimientos():
     """Lista de mantenimientos con paginación y filtros"""
@@ -524,6 +528,66 @@ def api_mantenimiento(mantenimiento_id):
         'id': mantenimiento_id,
         'fotos': fotos
     })
+
+# ENDPOINT CRÍTICO: El que tu HTML está buscando (para el modal)
+@app.route('/api/mantenimientos/<int:mantenimiento_id>/detalle')
+def api_mantenimiento_detalle_con_detalle(mantenimiento_id):
+    """Endpoint para el detalle completo (que usa el HTML)"""
+    try:
+        # Obtener datos completos del mantenimiento
+        mantenimiento = db.execute_query("""
+            SELECT m.*, e.nombre as equipo_nombre, e.fabricante, e.ubicacion, e.fecha_compra,
+                   c.tipo as cronograma_tipo, c.subcategoria, c.frecuencia
+            FROM mantenimientos m 
+            LEFT JOIN equipos e ON m.equipo_id = e.id 
+            LEFT JOIN cronograma c ON m.cronograma_id = c.id
+            WHERE m.id = %s
+        """, (mantenimiento_id,))
+        
+        if not mantenimiento:
+            return jsonify({'error': 'Mantenimiento no encontrado'}), 404
+        
+        mantenimiento_data = mantenimiento[0]
+        
+        # Obtener fotos
+        fotos = db.execute_query("""
+            SELECT ruta_archivo, tipo
+            FROM fotos_mantenimiento
+            WHERE mantenimiento_id = %s
+        """, (mantenimiento_id,)) or []
+        
+        # Obtener repuestos
+        repuestos = db.execute_query("""
+            SELECT nombre, cantidad
+            FROM repuestos
+            WHERE mantenimiento_id = %s
+        """, (mantenimiento_id,)) or []
+        
+        # Preparar cronograma_info
+        cronograma_info = None
+        if mantenimiento_data.get('cronograma_tipo'):
+            cronograma_info = {
+                'tipo': mantenimiento_data.get('cronograma_tipo'),
+                'subcategoria': mantenimiento_data.get('subcategoria'),
+                'frecuencia': mantenimiento_data.get('frecuencia')
+            }
+        
+        return jsonify({
+            'id': mantenimiento_data['id'],
+            'fecha': mantenimiento_data['fecha'].strftime('%Y-%m-%d') if mantenimiento_data['fecha'] else None,
+            'hora': str(mantenimiento_data['hora']) if mantenimiento_data['hora'] else None,
+            'tipo': mantenimiento_data['tipo'],
+            'estado': mantenimiento_data['estado'],
+            'descripcion': mantenimiento_data['descripcion'],
+            'equipo_nombre': mantenimiento_data['equipo_nombre'],
+            'cronograma_info': cronograma_info,
+            'fotos': fotos,
+            'repuestos': repuestos
+        })
+        
+    except Exception as e:
+        print(f"Error en api_mantenimiento_detalle: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/mantenimientos/pdf')
 def generar_pdf_mantenimientos():
@@ -892,7 +956,6 @@ def reportar_mantenimiento():
                          cronogramas=cronogramas,
                          cronograma_seleccionado=cronograma_seleccionado)
 
-
 @app.route('/cronograma')
 def cronograma():
     if 'user_id' not in session:
@@ -970,6 +1033,7 @@ def cronograma():
                              'fecha_hasta': fecha_hasta
                          },
                          hoy=date.today())
+
 @app.route('/crear_cronograma', methods=['POST'])
 def crear_cronograma():
     if 'user_id' not in session:
@@ -1138,6 +1202,7 @@ def obtener_cronograma(id):
     except Exception as e:
         print(f"ERROR en obtener_cronograma: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
 # ==================== RUTAS API PARA POSTMAN ====================
 
 @app.route('/api/equipos', methods=['GET'])
@@ -1255,9 +1320,13 @@ def api_mantenimiento_detalle(mantenimiento_id):
         print(f"Error en API mantenimiento detalle: {e}")
         return jsonify({'error': 'Error interno del servidor'}), 500
 
+# ==================== ENDPOINT CRÍTICO PARA PDF ====================
+
 @app.route('/mantenimiento/<int:mantenimiento_id>/pdf')
 def generar_pdf_mantenimiento(mantenimiento_id):
     try:
+        print(f"=== INICIANDO GENERACIÓN DE PDF PARA MANTENIMIENTO {mantenimiento_id} ===")
+        
         # Obtener datos completos del mantenimiento
         mantenimiento = db.execute_query("""
             SELECT m.id, m.equipo_id, m.fecha, m.tipo, m.descripcion, m.estado, 
@@ -1272,6 +1341,7 @@ def generar_pdf_mantenimiento(mantenimiento_id):
             return "Mantenimiento no encontrado", 404
 
         mantenimiento_data = mantenimiento[0]
+        print(f"Datos del mantenimiento obtenidos: ID={mantenimiento_data['id']}, Equipo={mantenimiento_data['equipo_nombre']}")
 
         # Obtener fotos
         fotos = db.execute_query("""
@@ -1279,6 +1349,10 @@ def generar_pdf_mantenimiento(mantenimiento_id):
             FROM fotos_mantenimiento
             WHERE mantenimiento_id = %s
         """, (mantenimiento_id,)) or []
+        
+        print(f"Fotos encontradas en BD: {len(fotos)}")
+        for foto in fotos:
+            print(f"  - {foto['ruta_archivo']} ({foto['tipo']})")
 
         # Obtener repuestos
         repuestos = db.execute_query("""
@@ -1286,6 +1360,7 @@ def generar_pdf_mantenimiento(mantenimiento_id):
             FROM repuestos
             WHERE mantenimiento_id = %s
         """, (mantenimiento_id,)) or []
+        print(f"Repuestos encontrados: {len(repuestos)}")
 
         # Obtener información del cronograma
         cronograma_info = None
@@ -1302,41 +1377,67 @@ def generar_pdf_mantenimiento(mantenimiento_id):
         grafica_estadisticas = generar_grafica_estadisticas(mantenimiento_data)
         grafica_tiempos = generar_grafica_tiempos(mantenimiento_data)
 
-        # Convertir fotos a base64 para incrustar directamente en el PDF
-        import os
-        import base64
+        # ====== PARTE CRÍTICA: PROCESAR IMÁGENES ======
+        print("\n=== BUSCANDO IMÁGENES ===")
         
+        # Verificar estructura de directorios
+        base_static_path = '/opt/render/project/src/static'
+        uploads_path = '/opt/render/project/src/static/uploads'
+        
+        print(f"Ruta base static: {base_static_path}")
+        print(f"¿Existe? {os.path.exists(base_static_path)}")
+        print(f"Ruta uploads: {uploads_path}")
+        print(f"¿Existe? {os.path.exists(uploads_path)}")
+        
+        if os.path.exists(uploads_path):
+            archivos_en_uploads = os.listdir(uploads_path)
+            print(f"Archivos en uploads ({len(archivos_en_uploads)}): {archivos_en_uploads}")
+        else:
+            print("ERROR: La carpeta uploads NO existe")
+            # Listar contenido del directorio padre
+            if os.path.exists(base_static_path):
+                contenido_static = os.listdir(base_static_path)
+                print(f"Contenido de static: {contenido_static}")
+        
+        # Convertir fotos a base64
         fotos_para_pdf = []
-        base_path = '/opt/render/project/src/static'
         
         for foto in fotos:
-            ruta_archivo = foto['ruta_archivo']
+            nombre_archivo = foto['ruta_archivo']
+            print(f"\nProcesando archivo: {nombre_archivo}")
             
-            # Lista de posibles ubicaciones para buscar el archivo
-            posibles_rutas = []
+            # Limpiar nombre (por si tiene rutas relativas)
+            nombre_limpio = nombre_archivo
+            if '/' in nombre_archivo:
+                nombre_limpio = nombre_archivo.split('/')[-1]
+                print(f"  Nombre limpio: {nombre_limpio}")
             
-            # 1. Ruta exacta como está en la BD
-            posibles_rutas.append(os.path.join(base_path, ruta_archivo))
+            # Posibles ubicaciones donde buscar
+            posibles_rutas = [
+                os.path.join(uploads_path, nombre_limpio),          # uploads/nombre.jpg
+                os.path.join(base_static_path, nombre_limpio),      # static/nombre.jpg
+                os.path.join(uploads_path, nombre_archivo),         # uploads/ruta_completa
+                os.path.join(base_static_path, nombre_archivo),     # static/ruta_completa
+            ]
             
-            # 2. Ruta con 'uploads/' prefijo si no lo tiene
-            if not 'uploads/' in ruta_archivo and not ruta_archivo.startswith('static/'):
-                posibles_rutas.append(os.path.join(base_path, 'uploads', ruta_archivo))
+            # Agregar rutas con prefijos comunes
+            if not nombre_archivo.startswith('uploads/') and not nombre_archivo.startswith('static/'):
+                posibles_rutas.append(os.path.join(uploads_path, 'uploads', nombre_limpio))
+                posibles_rutas.append(os.path.join(base_static_path, 'static', nombre_limpio))
             
-            # 3. Ruta con solo el nombre del archivo en uploads
-            nombre_archivo = os.path.basename(ruta_archivo)
-            posibles_rutas.append(os.path.join(base_path, 'uploads', nombre_archivo))
-            
-            # 4. Ruta en static directamente
-            posibles_rutas.append(os.path.join(base_path, nombre_archivo))
-            
-            # Buscar el archivo en las rutas posibles
+            imagen_encontrada = False
             ruta_encontrada = None
+            
             for ruta in posibles_rutas:
                 if os.path.exists(ruta):
+                    print(f"  ✓ ENCONTRADA en: {ruta}")
                     ruta_encontrada = ruta
+                    imagen_encontrada = True
                     break
+                else:
+                    print(f"  ✗ No en: {ruta}")
             
-            if ruta_encontrada:
+            if imagen_encontrada and ruta_encontrada:
                 try:
                     with open(ruta_encontrada, 'rb') as img_file:
                         img_data = img_file.read()
@@ -1357,24 +1458,31 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                         fotos_para_pdf.append({
                             'url': data_url,
                             'tipo': foto['tipo'],
-                            'ruta_archivo': ruta_archivo
+                            'ruta_archivo': nombre_archivo,
+                            'error': False
                         })
-                except Exception:
+                        print(f"  ✓ Imagen convertida a base64 ({len(img_data)} bytes)")
+                        
+                except Exception as e:
+                    print(f"  ✗ Error leyendo archivo: {e}")
                     fotos_para_pdf.append({
                         'url': '',
                         'tipo': foto['tipo'],
-                        'ruta_archivo': ruta_archivo,
+                        'ruta_archivo': nombre_archivo,
                         'error': True
                     })
             else:
+                print(f"  ✗ ARCHIVO NO ENCONTRADO en ninguna ruta")
                 fotos_para_pdf.append({
                     'url': '',
                     'tipo': foto['tipo'],
-                    'ruta_archivo': ruta_archivo,
+                    'ruta_archivo': nombre_archivo,
                     'error': True
                 })
-
-        # Renderizar template HTML
+        
+        print(f"\nResumen: {len(fotos_para_pdf)} fotos procesadas, {len([f for f in fotos_para_pdf if not f['error']])} exitosas")
+        
+        # ====== GENERAR HTML Y PDF ======
         html = render_template('reporte_pdf.html',
                             mantenimiento=mantenimiento_data,
                             fotos=fotos_para_pdf,
@@ -1403,7 +1511,10 @@ def generar_pdf_mantenimiento(mantenimiento_id):
             }
             
             pdf = HTML(string=html).write_pdf()
-        except Exception:
+            print("✓ PDF generado exitosamente con WeasyPrint")
+            
+        except Exception as e:
+            print(f"Error con WeasyPrint: {e}")
             # Opción alternativa si falla
             try:
                 options = {
@@ -1416,16 +1527,23 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                     'enable-local-file-access': ''
                 }
                 pdf = HTML(string=html).write_pdf()
+                print("✓ PDF generado con configuración alternativa")
             except Exception as e2:
+                print(f"Error alternativo generando PDF: {e2}")
                 raise Exception(f"No se pudo generar el PDF: {e2}")
 
         # Crear respuesta
         response = make_response(pdf)
         response.headers['Content-Type'] = 'application/pdf'
         response.headers['Content-Disposition'] = f'inline; filename=reporte_mantenimiento_{mantenimiento_id}.pdf'
+        
+        print(f"=== PDF GENERADO EXITOSAMENTE PARA MANTENIMIENTO {mantenimiento_id} ===")
         return response
 
     except Exception as e:
+        print(f"=== ERROR GENERANDO PDF: {e} ===")
+        import traceback
+        traceback.print_exc()
         return f"Error al generar el PDF: {str(e)}", 500
 
 def generar_grafica_estadisticas(mantenimiento):
@@ -1489,7 +1607,6 @@ def generar_grafica_tiempos(mantenimiento):
     except Exception as e:
         print(f"Error generando gráfica de tiempos: {e}")
         return None
-
 
 @app.route('/api/test-connection', methods=['GET'])
 def test_connection():
