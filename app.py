@@ -1375,10 +1375,29 @@ def generar_pdf_mantenimiento(mantenimiento_id):
         grafica_estadisticas = generar_grafica_estadisticas(mantenimiento_data)
         grafica_tiempos = generar_grafica_tiempos(mantenimiento_data)
 
+        # Convertir fotos a URLs absolutas para wkhtmltopdf
+        import os
+        from urllib.parse import urljoin
+        base_url = request.host_url.rstrip('/')
+        
+        fotos_para_pdf = []
+        for foto in fotos:
+            ruta_archivo = foto['ruta_archivo']
+            # Crear URL absoluta para el PDF
+            if ruta_archivo.startswith('/'):
+                url_foto = urljoin(base_url, ruta_archivo[1:])
+            else:
+                url_foto = urljoin(base_url + '/static/', ruta_archivo)
+            fotos_para_pdf.append({
+                'url': url_foto,
+                'tipo': foto['tipo'],
+                'ruta_archivo': foto['ruta_archivo']
+            })
+
         # Renderizar template HTML
         html = render_template('reporte_pdf.html',
                             mantenimiento=mantenimiento_data,
-                            fotos=fotos,
+                            fotos=fotos_para_pdf,  # Usar las fotos con URLs
                             repuestos=repuestos,
                             cronograma_info=cronograma_info,
                             grafica_estadisticas=grafica_estadisticas,
@@ -1395,35 +1414,31 @@ def generar_pdf_mantenimiento(mantenimiento_id):
                 'margin-left': '1.0cm',
                 'encoding': "UTF-8",
                 'no-outline': None,
-                'enable-local-file-access': None
+                'enable-local-file-access': None,
+                'enable-external-links': None,
+                'load-error-handling': 'ignore',
+                'load-media-error-handling': 'ignore'
             }
             
             pdf = HTML(string=html).write_pdf()
         except Exception as e:
-            print(f"Error con PDFKit PATH: {e}")
-            # Opción 2: Ruta específica de wkhtmltopdf
-            posibles_rutas = [
-                'C:/Program Files/wkhtmltopdf/bin/wkhtmltopdf.exe',
-                'C:/wkhtmltopdf/bin/wkhtmltopdf.exe',
-                'wkhtmltopdf.exe'
-            ]
-            
-            for ruta in posibles_rutas:
-                if os.path.exists(ruta):
-                    options = {
-                        'page-size': 'A4',
-                        'margin-top': '1.0cm',
-                        'margin-right': '1.0cm',
-                        'margin-bottom': '1.0cm',
-                        'margin-left': '1.0cm',
-                        'encoding': "UTF-8",
-                        'no-outline': None,
-                        'enable-local-file-access': None
-                    }
-                    pdf = HTML(string=html).write_pdf()
-                    break
-            else:
-                raise Exception("No se encontró wkhtmltopdf instalado")
+            print(f"Error con PDFKit: {e}")
+            # Opción alternativa si falla
+            try:
+                # Intentar con configuración simplificada
+                options = {
+                    'page-size': 'A4',
+                    'margin-top': '1.0cm',
+                    'margin-right': '1.0cm',
+                    'margin-bottom': '1.0cm',
+                    'margin-left': '1.0cm',
+                    'encoding': "UTF-8",
+                    'enable-local-file-access': ''
+                }
+                pdf = HTML(string=html).write_pdf()
+            except Exception as e2:
+                print(f"Error alternativo generando PDF: {e2}")
+                raise Exception(f"No se pudo generar el PDF: {e2}")
 
         # Crear respuesta
         response = make_response(pdf)
