@@ -247,8 +247,8 @@
     
     <div class="section">
         <div class="section-title">DESCRIPCIÓN DEL MANTENIMIENTO</div>
-        <div style="padding: 10px; background-color: #f9f9f9; border-radius: 4px;">
-            {{ mantenimiento.descripcion|nl2br }}
+        <div style="padding: 10px; background-color: #f9f9f9; border-radius: 4px; white-space: pre-wrap;">
+            {{ mantenimiento.descripcion }}
         </div>
     </div>
     
@@ -315,4 +315,4 @@
         <p>Sistema de Gestión de Mantenimiento © {{ fecha_reporte[:4] }}</p>
     </div>
 </body>
-</html>
+</html> 
